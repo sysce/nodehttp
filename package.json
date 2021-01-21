@@ -7,9 +7,19 @@
 		"type": "git",
 		"url": "git+https://github.com/sysce/nodehttp.git"
 	},
-	"bugs": { "url": "https://github.com/sysce/nodehttp/issues" },
+	"bugs": {
+		"url": "https://github.com/sysce/nodehttp/issues"
+	},
 	"homepage": "https://github.com/sysce/nodehttp#readme",
-	"keywords": [ "webserver", "express", "http", "https" ],
+	"keywords": [
+		"webserver",
+		"express",
+		"http",
+		"https"
+	],
 	"author": "systemya",
-	"license": "GPL-3.0"
+	"license": "GPL-3.0",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	}
 }
