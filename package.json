@@ -1,0 +1,15 @@
+{
+	"name": "nodehttp",
+	"description": "woah",
+	"version": "1.0.0",
+	"main": "index.js",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sysce/nodehttp.git"
+	},
+	"bugs": { "url": "https://github.com/sysce/nodehttp/issues" },
+	"homepage": "https://github.com/sysce/nodehttp#readme",
+	"keywords": [ "webserver", "express", "http", "https" ],
+	"author": "systemya",
+	"license": "GPL-3.0"
+}
