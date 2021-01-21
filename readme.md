@@ -31,3 +31,5 @@ var path = require('path'),
 		address: '0.0.0.0',
 	});
 ```
+
+todo: add docs via jsdoc 😳
