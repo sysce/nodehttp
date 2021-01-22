@@ -412,7 +412,7 @@ exports.server = class extends events {
 		this.routes.push([ 'GET', path, handler ]);
 	}
 	/**
-	* add a GET route
+	* add a POST route
 	* @param {string} Path
 	* @param {function} Handler
 	*/
@@ -420,7 +420,7 @@ exports.server = class extends events {
 		var path = typeof a1 == 'string' ? a1 : '*',
 			handler = typeof a1 == 'function' ? a1 : a2;
 		
-		this.routes.push([ 'GET', path, handler ]);
+		this.routes.push([ 'post', path, handler ]);
 	}
 	/**
 	* add a PUT route
