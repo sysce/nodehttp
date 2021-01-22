@@ -161,6 +161,11 @@ exports.response = class {
 		
 		return this;
 	}
+	json(object){
+		this.send(JSON.stringify(object));
+		
+		return this;
+	}
 	static(){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
