@@ -154,7 +154,8 @@ exports.response = class {
 		
 		this.finalize();
 		
-		this.org_res.end(body);
+		// call tostring
+		this.org_res.end(body + '');
 		
 		this.resp.sent_body = true;
 		
@@ -338,7 +339,7 @@ exports.minify = (data, name, opts) => {
 /** 
 * [create_server create an http(s) server with config provided]
 * @param {Object} config
-* @param {Array} config.endpoints all endpoints to go through, [ ['/regex or string', (req, res) => {} ] ]
+* @param {Array} config.routes all routes to go through, [ ['/regex or string', (req, res) => {} ] ]
 * @param {Number} config.port port to run server on
 * @param {String} config.address address to run server on
 * @param {String} config.static static directory to load files from
@@ -355,9 +356,7 @@ exports.server = class extends events {
 		
 		if(typeof options != 'object')throw new TypeError('a none object was specified for the config');
 		
-		this.ready = options.ready ? () => (this.emit('ready'), options.ready.call(this)) : (() => {
-			console.log(`[${process.pid}] server listening on ${this.url}`);
-		});
+		this.options = options;
 		
 		this.handler = async (req, res) => {
 			res = new exports.response(req, res);
@@ -370,7 +369,7 @@ exports.server = class extends events {
 			
 			await req.process();
 			
-			var end = this.endpoints.find(([ method, key, val, targ = 'pathname' ]) => {
+			var end = this.routes.find(([ method, key, val, targ = 'pathname' ]) => {
 				if(method != '*' && method != req.method)return;
 				if(key instanceof RegExp)return key.test(req.url[targ]);
 				
@@ -386,7 +385,7 @@ exports.server = class extends events {
 		
 		this.execution = options.execution == false ? false : true;
 		
-		this.endpoints = options.endpoints || options.routes || [];
+		this.routes = options.endpoints || options.routes || [];
 		this.ssl = options.ssl;
 		
 		this.port = options.port || 8080;
@@ -398,8 +397,32 @@ exports.server = class extends events {
 		this.static = options.static || '';
 		this.static_exists = this.static && fs.existsSync(this.static);
 		
-		this.server = (this.ssl ? https.createServer(this.ssl, this.handler) : http.createServer(this.handler)).listen(this.port, this.address, this.ready).on('error', err => {
+		this.server = (this.ssl ? https.createServer(this.ssl, this.handler) : http.createServer(this.handler)).listen(this.port, this.address, this.ready.bind(this)).on('error', err => {
 			this.emit('error', err);
 		});
+	}
+	get(a1, a2){
+		var path = typeof a1 == 'string' ? a1 : '*',
+			handler = typeof a1 == 'function' ? a1 : a2;
+		
+		this.routes.push([ 'GET', path, handler ]);
+	}
+	post(a1, a2){
+		var path = typeof a1 == 'string' ? a1 : '*',
+			handler = typeof a1 == 'function' ? a1 : a2;
+		
+		this.routes.push([ 'GET', path, handler ]);
+	}
+	use(a1, a2){
+		var path = typeof a1 == 'string' ? a1 : '*',
+			handler = typeof a1 == 'function' ? a1 : a2;
+		
+		this.routes.push([ '*', path, handler ]);
+	}
+	ready(){
+		this.emit('ready');
+		
+		if(this.options.ready)this.options.ready.call(this);
+		else console.log(`[${process.pid}] server listening on ${this.url}`);
 	}
 }

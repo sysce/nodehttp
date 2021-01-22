@@ -5,7 +5,7 @@
 ### adding to your package
 
 ```sh
-npm i sysce/nodehttp
+npm i sys-nodehttp
 ```
 
 ### usage:
@@ -14,7 +14,7 @@ npm i sysce/nodehttp
 
 ```js
 var path = require('path'),
-	nodehttp = require('nodehttp'),
+	nodehttp = require('sys-nodehttp'),
 	server = new nodehttp.server({
 		// a directory named web serves static content
 		static: path.join(__dirname, 'web'),
