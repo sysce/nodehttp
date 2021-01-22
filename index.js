@@ -346,8 +346,7 @@ exports.minify = (data, name, opts) => {
 * @param {Object} config.ssl ssl data to use with server, if not specified server will be HTTP only
 * @param {Object} config.ssl.key location to key file
 * @param {Object} config.ssl.crt location to crt file
-* @param {Function} config.ready function to call on server being ready
-* @param {Function} config.handler handler to use instead of default
+* @param {Function} config.ready function to call on server being ready 
 */
 
 exports.server = class extends events {
@@ -401,18 +400,66 @@ exports.server = class extends events {
 			this.emit('error', err);
 		});
 	}
+	/**
+	* add a GET route
+	* @param {string} Path
+	* @param {function} Handler
+	*/
 	get(a1, a2){
 		var path = typeof a1 == 'string' ? a1 : '*',
 			handler = typeof a1 == 'function' ? a1 : a2;
 		
 		this.routes.push([ 'GET', path, handler ]);
 	}
+	/**
+	* add a GET route
+	* @param {string} Path
+	* @param {function} Handler
+	*/
 	post(a1, a2){
 		var path = typeof a1 == 'string' ? a1 : '*',
 			handler = typeof a1 == 'function' ? a1 : a2;
 		
 		this.routes.push([ 'GET', path, handler ]);
 	}
+	/**
+	* add a PUT route
+	* @param {string} Path
+	* @param {function} Handler
+	*/
+	put(a1, a2){
+		var path = typeof a1 == 'string' ? a1 : '*',
+			handler = typeof a1 == 'function' ? a1 : a2;
+		
+		this.routes.push([ 'PUT', path, handler ]);
+	}
+	/**
+	* add a PATCH route
+	* @param {string} Path
+	* @param {function} Handler
+	*/
+	patch(a1, a2){
+		var path = typeof a1 == 'string' ? a1 : '*',
+			handler = typeof a1 == 'function' ? a1 : a2;
+		
+		this.routes.push([ 'PATCH', path, handler ]);
+	}
+	/**
+	* add a DELETE route
+	* @param {string} Path
+	* @param {function} Handler
+	*/
+	delete(a1, a2){
+		var path = typeof a1 == 'string' ? a1 : '*',
+			handler = typeof a1 == 'function' ? a1 : a2;
+		
+		this.routes.push([ 'DELETE', path, handler ]);
+	}
+	/**
+	* add a route for all
+	* @param {string} Path
+	* @param {function} Handler
+	*/
 	use(a1, a2){
 		var path = typeof a1 == 'string' ? a1 : '*',
 			handler = typeof a1 == 'function' ? a1 : a2;
