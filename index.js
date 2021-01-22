@@ -24,11 +24,13 @@ exports.hash = str => { var hash = 5381, i = str.length; while(i)hash = (hash * 
 exports.sanitize = str => (str + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('');
 
 exports.request = class {
-	constructor(req, res){
+	constructor(req, res, server){
+		this.server = server;
+		
 		try{
-			this.url = new URL(req.url, 'https://' + req.headers.host);
+			this.url = new URL(req.url, 'http' + (server.ssl ? 's' : '') + '://' + req.headers.host);
 		}catch(err){
-			this.url = new URL('https://' + req.headers.host);
+			this.url = new URL('http' + (server.ssl ? 's' : '') + '://' + req.headers.host);
 		}
 		
 		Object.defineProperty(this.url, 'fullpath', {
@@ -90,14 +92,12 @@ exports.request = class {
 }
 
 exports.response = class {
-	constructor(req, res){
-		/*Object.defineProperties(this, {
-			org_req: { get: _ => req },
-			org_res: { get: _ => res },
-		});*/
+	constructor(req, res, server){
+		this.server = server;
+		
 		this.org_res = res;
 		
-		this.req = new exports.request(req, res);
+		this.req = new exports.request(req, res, server);
 		
 		this.resp = { status: 200 };
 		
@@ -136,7 +136,7 @@ exports.response = class {
 			headers['set-cookie'] = [];
 			
 			this.cookies.forEach(([ value, samesite, expires = Date.now() + 1e6, path = '/' ], name) => {
-				headers['set-cookie'].push(encodeURI(name) + '=' + encodeURI(value) + '; expires=' + expires + '; path=' + path + '; SameSite=' + samesite + '; Secure;');
+				headers['set-cookie'].push(encodeURI(name) + '=' + encodeURI(value) + '; expires=' + expires + '; path=' + path + '; SameSite=' + samesite + ';' + (this.server.ssl ? ' Secure;' : ''));
 			});
 			
 			headers['set-cookie'] = headers['set-cookie'].join(' ');
@@ -363,13 +363,10 @@ exports.server = class extends events {
 		this.options = options;
 		
 		this.handler = async (req, res) => {
-			res = new exports.response(req, res);
+			res = new exports.response(req, res, this);
 			req = res.req;
 			
 			if(options.handler)return options.handler(req, res);
-			
-			Object.defineProperty(req, 'server', { get: _ => this });
-			Object.defineProperty(res, 'server', { get: _ => this });
 			
 			await req.process();
 			
