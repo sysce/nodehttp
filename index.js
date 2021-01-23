@@ -125,7 +125,7 @@ exports.response = class {
 		if(this.cookies.size){
 			headers['set-cookie'] = [];
 			
-			this.cookies.forEach(([ value, samesite, expires = Date.now() + 1e6, path = '/' ], name) => {
+			this.cookies.forEach(([ value, samesite = 'Lax', expires = Date.now() + 1e6, path = '/' ], name) => {
 				headers['set-cookie'].push(encodeURI(name) + '=' + encodeURI(value) + '; expires=' + expires + '; path=' + path + '; SameSite=' + samesite + ';' + (this.server.ssl ? ' Secure;' : ''));
 			});
 			
