@@ -144,8 +144,7 @@ exports.response = class {
 		
 		this.finalize();
 		
-		// call tostring
-		this.org_res.end(body + '');
+		this.org_res.end(body);
 		
 		this.resp.sent_body = true;
 		
