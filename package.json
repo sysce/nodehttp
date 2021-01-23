@@ -1,7 +1,7 @@
 {
 	"name": "sys-nodehttp",
 	"description": "woah",
-	"version": "1.0.9",
+	"version": "1.1.0",
 	"main": "index.js",
 	"repository": {
 		"type": "git",
@@ -15,7 +15,8 @@
 		"webserver",
 		"express",
 		"http",
-		"https"
+		"https",
+		"nodehttp"
 	],
 	"author": "systemya",
 	"license": "GPL-3.0"
