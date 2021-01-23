@@ -42,17 +42,7 @@ exports.request = class {
 		
 		this.query = Object.fromEntries(Array.from(this.url.searchParams.entries()));
 		this.method = req.method;
-		this.cookies = req.headers.cookie ? Object.fromEntries((req.headers.cookie + '').split(';').map(split => {
-			split = (split + '').trim().split('=');
-			
-			try{
-				split = [ decodeURI(split[0]), decodeURI(split[1]) ];
-			}catch(err){
-				split = [ split[0], split[1] ];
-			};
-			
-			return split;
-		})) : {};
+		this.cookies = req.headers.cookie ? Object.fromEntries((req.headers.cookie + '').split(';').map(split => (split + '').trim().split('='))) : {};
 		
 		this.req = req;
 		
