@@ -91,7 +91,7 @@ exports.response = class {
 		
 		this.resp = { status: 200 };
 		
-		this.cookies = new Map();
+		this.cookies = {};
 		
 		this.headers = new Map();
 	}
@@ -101,7 +101,7 @@ exports.response = class {
 		return this;
 	}
 	set(name, value){
-		this.headers.set((name + '').toLowerCase(), value + '');
+		this.headers[(name + '').toLowerCase()] = value + '';
 		
 		return this;
 	}
@@ -113,26 +113,39 @@ exports.response = class {
 		
 		this.resp.sent_head = true;
 		
-		var headers = Object.fromEntries(Array.from(this.headers.entries())),
-			status = this.resp.status;
+		var status = this.resp.status;
 		
 		// remove trailers on chunked
 		
-		if(headers['content-encoding'] == 'chunked' && headers.trailers)delete headers.trailers;
+		if(this.headers['content-encoding'] == 'chunked' && this.headers.trailers)delete this.headers.trailers;
 		
 		// handle cookies
 		
-		if(this.cookies.size){
-			headers['set-cookie'] = [];
+		if(Object.keys(this.cookies).length && !this.headers['set-cookie']){
+			this.headers['set-cookie'] = [];
 			
-			this.cookies.forEach(([ value, samesite = 'Lax', expires = Date.now() + 1e6, path = '/' ], name) => {
-				headers['set-cookie'].push(encodeURI(name) + '=' + encodeURI(value) + '; expires=' + expires + '; path=' + path + '; SameSite=' + samesite + ';' + (this.server.ssl ? ' Secure;' : ''));
-			});
+			for(var name in this.cookies){
+				var data = this.cookies[name],
+					out = [
+						name + '=' + data.value,
+					];
+				
+				if(data.expires){
+					if(typeof data.expires == 'number')data.expires = new Date(data.expires);
+					
+					out.push('expires=' + (data.expires instanceof Date ? data.expires.toGMTString() : data.expires));
+				}
+				
+				if(data.samesite)out.push('samesite=' + data.samesite);
+				if(data.secure)out.push('secure');
+				
+				this.headers['set-cookie'].push(out.join('; '));
+			}
 			
-			headers['set-cookie'] = headers['set-cookie'].join(' ');
+			this.headers['set-cookie'] = this.headers['set-cookie'].join(' ');
 		}
 		
-		this.org_res.writeHead(status, headers);
+		this.org_res.writeHead(status, this.headers);
 	}
 	pipe_from(stream){
 		this.finalize();
@@ -156,9 +169,6 @@ exports.response = class {
 		return this;
 	}
 	static(){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
-		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
-		
 		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
 		
 		var pub_file = path.join(this.server.static, this.req.url.pathname);
