@@ -23,12 +23,14 @@ exports.hash = str => { var hash = 5381, i = str.length; while(i)hash = (hash * 
 
 exports.sanitize = str => (str + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('');
 
+exports.path_regex = /[\/\\]+/g;
+
 exports.request = class {
 	constructor(req, res, server){
 		this.server = server;
 		
 		try{
-			this.url = new URL(req.url, 'http' + (server.ssl ? 's' : '') + '://' + req.headers.host);
+			this.url = new URL(req.url.replace(exports.path_regex, '/'), 'http' + (server.ssl ? 's' : '') + '://' + req.headers.host);
 		}catch(err){
 			this.url = new URL('http' + (server.ssl ? 's' : '') + '://' + req.headers.host);
 		}
@@ -157,6 +159,8 @@ exports.response = class {
 		
 		this.finalize();
 		
+		if(['boolean', 'number'].includes(typeof body))body += '';
+		
 		this.org_res.end(body);
 		
 		this.resp.sent_body = true;
@@ -175,7 +179,11 @@ exports.response = class {
 		
 		if(!fs.existsSync(pub_file))return this.cgi_status(404);
 		
-		if(fs.statSync(pub_file).isDirectory())pub_file = path.join(pub_file, 'index.html');
+		if(fs.statSync(pub_file).isDirectory()){
+			if(!this.req.url.pathname.endsWith('/'))return this.redirect(301, this.req.url.pathname + '/');
+			
+			pub_file = path.join(pub_file, 'index.html');
+		}
 		
 		if(!fs.existsSync(pub_file))return this.cgi_status(404);
 		

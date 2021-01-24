@@ -1,9 +1,13 @@
 var http = require('http'),
+	path = require('path'),
 	nodehttp = require('.'),
 	server = new nodehttp.server({
 		address: '127.0.0.1',
 		port: '8080',
+		static: path.join(__dirname, 'web'),
 		ready(){
+			console.log(this.url.href);
+			
 			this.routes.forEach(([ method, path, handler ]) => {
 				var url = new URL(path, this.url),
 					start = Date.now();
