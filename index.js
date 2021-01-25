@@ -292,17 +292,13 @@ exports.html = (fn, body, req, res, state) => {
 				},
 				req: req,
 				res: res,
-				fs: fs,
-				path: path,
-				atob: exports.atob,
-				btoa: exports.btoa,
 			};
 		
 		try{
-			func = new Function(Object.keys(args), exp);
+			func = new Function(Object.keys(args).concat(Object.keys(res.server.global)), exp);
 			
 			try{
-				Reflect.apply(func, state, Object.values(args));
+				Reflect.apply(func, state, Object.values(args).concat(Object.values(res.server.global)));
 			}catch(err){
 				var message = '@' + fn + ', error at execution:\n' + util.format(err);
 				
@@ -358,6 +354,7 @@ exports.minify = (data, name, opts) => {
 * @param {Object} config.ssl ssl data to use with server, if not specified server will be HTTP only
 * @param {Object} config.ssl.key location to key file
 * @param {Object} config.ssl.crt location to crt file
+* @param {Object} config.global global arguments to pass to rhtml
 * @param {Function} config.ready function to call on server being ready 
 */
 
@@ -392,6 +389,13 @@ exports.server = class extends events {
 		};
 		
 		this.execution = options.execution == false ? false : true;
+		this.global = options.global || {};
+		
+		this.global.fs = fs;
+		this.global.path = path;
+		this.global.atob = exports.atob;
+		this.global.btoa = exports.btoa;
+		this.global.nodehttp = exports;
 		
 		this.routes = options.endpoints || options.routes || [];
 		this.ssl = options.ssl;
