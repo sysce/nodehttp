@@ -160,7 +160,18 @@ exports.response = class {
 		
 		this.org_res.write(buf);
 		
-		return buf;
+		return this;
+	}
+	end(data){
+		if(data){
+			var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
+			
+			this.org_res.end(buf);
+		}else{
+			this.org_res.end();
+		}
+		
+		return this;
 	}
 	send(body){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
