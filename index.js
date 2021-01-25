@@ -152,7 +152,15 @@ exports.response = class {
 	pipe_from(stream){
 		this.finalize();
 		
-		stream.pipe(this.org_res);
+		stream.on('data', chunk => this.write(chunk));
+		stream.on('end', chunk => this.end(chunk));
+	}
+	write(data){
+		var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
+		
+		this.org_res.write(buf);
+		
+		return buf;
 	}
 	send(body){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
@@ -161,7 +169,9 @@ exports.response = class {
 		
 		if(['boolean', 'number'].includes(typeof body))body += '';
 		
-		this.org_res.end(body);
+		this.write(body);
+		
+		this.org_res.end();
 		
 		this.resp.sent_body = true;
 		
@@ -344,6 +354,15 @@ exports.minify = (data, name, opts) => {
 };
 */
 
+exports.size = {
+	b: 1,
+	kb: 1e3,
+	mb: 1e6,
+	gb: 1e9,
+	tb: 1e12,
+	pb: 1e+15,
+}
+
 /** 
 * [create_server create an http(s) server with config provided]
 * @param {Object} config
@@ -351,6 +370,7 @@ exports.minify = (data, name, opts) => {
 * @param {Number} config.port port to run server on
 * @param {String} config.address address to run server on
 * @param {String} config.static static directory to load files from
+* @param {String} config.max_response_size maximum response size ( BYTES )
 * @param {Object} config.ssl ssl data to use with server, if not specified server will be HTTP only
 * @param {Object} config.ssl.key location to key file
 * @param {Object} config.ssl.crt location to crt file
@@ -365,6 +385,8 @@ exports.server = class extends events {
 		if(typeof options != 'object')throw new TypeError('a none object was specified for the config');
 		
 		this.options = options;
+		
+		this.max_response_size = options.max_response_size || exports.size.mb * 512;
 		
 		this.handler = async (req, res) => {
 			res = new exports.response(req, res, this);
