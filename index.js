@@ -117,8 +117,18 @@ exports.response = class {
 		
 		var status = this.resp.status;
 		
-		// remove trailers on chunked
+		// lowercase headers
+		for(var name in this.headers){
+			var val = this.headers[name];
+			
+			if(typeof val == 'number')val = val + '';
+			
+			delete this.headers[name];
+			
+			this.headers[name.toLowerCase()] = val;
+		}
 		
+		// remove trailers on chunked
 		if(this.headers['content-encoding'] == 'chunked' && this.headers.trailers)delete this.headers.trailers;
 		
 		// handle cookies
