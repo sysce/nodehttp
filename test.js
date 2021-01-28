@@ -4,7 +4,6 @@ var http = require('http'),
 	server = new nodehttp.server({
 		address: '127.0.0.1',
 		port: '8080',
-		static: path.join(__dirname, 'web'),
 		ready(){
 			console.log(this.url.href);
 			
