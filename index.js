@@ -25,8 +25,10 @@ exports.sanitize = str => (str + '').split('').map(char => '&#' + char.charCodeA
 
 exports.path_regex = /[\/\\]+/g;
 
-exports.request = class {
+exports.request = class extends events {
 	constructor(req, res, server){
+		super();
+		
 		this.server = server;
 		
 		try{
@@ -49,6 +51,8 @@ exports.request = class {
 		this.req = req;
 		
 		this.body = {};
+		
+		this.req.on('close', err => this.emit('close', err));
 	}
 	process(){
 		return new Promise((resolve, reject) => {
@@ -83,8 +87,10 @@ exports.request = class {
 	}
 }
 
-exports.response = class {
+exports.response = class extends events {
 	constructor(req, res, server){
+		super();
+		
 		this.server = server;
 		
 		this.org_res = res;
@@ -417,18 +423,7 @@ exports.server = class extends events {
 			
 			await req.process();
 			
-			var end = this.routes.find(([ method, key, val, targ = 'pathname' ]) => {
-				if(method != '*' && method != req.method)return;
-				if(key instanceof RegExp)return key.test(req.url[targ]);
-				
-				var key = typeof key == 'function' ? key() : key;
-				
-				return key.endsWith('*') ? req.url[targ].startsWith(key.slice(0, -1)) : key == req.url[targ];
-			});
-			
-			if(end)return end[2](req, res);
-			else if(this.static_exists)res.static();
-			else res.cgi_status(404);
+			this.pick_route(req, res, [...this.routes]);
 		};
 		
 		this.execution = options.execution == false ? false : true;
@@ -455,6 +450,31 @@ exports.server = class extends events {
 		this.server = (this.ssl ? https.createServer(this.ssl, this.handler) : http.createServer(this.handler)).listen(this.port, this.address, this.ready.bind(this)).on('error', err => {
 			this.emit('error', err);
 		});
+		
+		this.server.on('upgrade', (req, socket, head) => this.emit('upgrade', req, socket, head));
+		this.server.on('connection', socket => this.emit('connection', socket));
+		this.server.on('close', err => this.emit('close', err));
+		
+		// checkContinue
+	}
+	pick_route(req, res, routes){
+		var end = routes.findIndex(([ method, key, val, targ = 'pathname' ]) => {
+				if(method != '*' && method != req.method)return;
+				if(key instanceof RegExp)return key.test(req.url[targ]);
+				
+				var key = typeof key == 'function' ? key() : key;
+				
+				return key.endsWith('*') ? (console.log(req.url[targ].startsWith(key.slice(0, -1))), req.url[targ].startsWith(key.slice(0, -1))) : key == req.url[targ];
+			}),
+			next = () => {
+				routes.splice(end, 1);
+				
+				this.pick_route(req, res, routes);
+			};
+		
+		if(routes[end])routes[end][2](req, res, next);
+		else if(this.static_exists)res.static();
+		else res.cgi_status(404);
 	}
 	/**
 	* add a GET route
