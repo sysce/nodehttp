@@ -464,7 +464,7 @@ exports.server = class extends events {
 				
 				var key = typeof key == 'function' ? key() : key;
 				
-				return key.endsWith('*') ? (console.log(req.url[targ].startsWith(key.slice(0, -1))), req.url[targ].startsWith(key.slice(0, -1))) : key == req.url[targ];
+				return key.endsWith('*') ? req.url[targ].startsWith(key.slice(0, -1)) : key == req.url[targ];
 			}),
 			next = () => {
 				routes.splice(end, 1);
