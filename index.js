@@ -238,14 +238,12 @@ exports.response = class extends events {
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
 		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(exports.format(message)) + '</pre>';
-		else message = '<h2>' + exports.sanitize(message) + '</h2>';
+		else message = message;
 		
-		var exposed_vars = {
-				title: exports.sanitize(title),
-				reason: message,
-			},
-			loca = path.join(this.server.static, 'cgi', 'error.html'),
-			text = fs.existsSync(loca) ? fs.readFileSync(loca, 'utf8') : '<h1><?=$title?></h1> <?=$reason?>';
+		// exports.sanitize preferred
+		
+		var loca = path.join(this.server.static, 'cgi', 'error.html'),
+			text = fs.existsSync(loca) ? fs.readFileSync(loca, 'utf8') : '<?js res.contentType("text/plain")?><?=$title?> <?=$reason?>';
 		
 		this.set('content-type', 'text/html');
 		this.status(code);
