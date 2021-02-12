@@ -3,6 +3,7 @@ var fs = require('fs'),
 	url = require('url'),
 	path = require('path'),
 	util =  require('util'),
+	zlib = require('zlib'),
 	http = require('http'),
 	https = require('https'),
 	events = require('events');
@@ -51,6 +52,8 @@ exports.request = class extends events {
 		this.req = req;
 		
 		this.body = {};
+		
+		if(this.headers['accept-encoding'])this.accept_encoding = this.headers['accept-encoding'].split(' ');
 		
 		this.req.on('close', err => this.emit('close', err));
 	}
@@ -205,9 +208,27 @@ exports.response = class extends events {
 		return this;
 	}
 	json(object){
+		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		
 		this.send(JSON.stringify(object));
 		
 		return this;
+	}
+	compress(type, body){
+		if(!['br', 'gzip', 'deflate'].includes(type))throw new TypeError('unknown compression `' + exports.wrap(type));
+		
+		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		
+		if(typeof body == 'string')body = Buffer.from(body);
+		
+		// anything below 1mb not worth compressing
+		if(!this.req.accept_encoding.includes(type) || body.byteLength < 1024)return this.send(body);
+		
+		var stream = type == 'br' ? zlib.createBrotliCompress() : type == 'gzip' ? zlib.createGunzip() : zlib.createDeflate();
+		
+		stream.end(body);
+		
+		return this.set('content-encoding', type).pipe_from(stream);
 	}
 	static(){
 		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
