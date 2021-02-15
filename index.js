@@ -230,10 +230,8 @@ exports.response = class extends events {
 		
 		return this.set('content-encoding', type).pipe_from(stream);
 	}
-	static(){
+	static(pub_file = path.join(this.server.static, this.req.url.pathname)){
 		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
-		
-		var pub_file = path.join(this.server.static, this.req.url.pathname);
 		
 		if(!fs.existsSync(pub_file))return this.cgi_status(404);
 		
