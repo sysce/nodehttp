@@ -18,6 +18,10 @@
 		"https",
 		"nodehttp"
 	],
+	"dev-dependencies": {},
 	"author": "systemya",
-	"license": "GPL-3.0"
+	"license": "GPL-3.0",
+	"devDependencies": {
+		"documentation": "^13.1.1"
+	}
 }

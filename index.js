@@ -26,8 +26,8 @@ exports.sanitize = str => (str + '').split('').map(char => '&#' + char.charCodeA
 
 exports.path_regex = /[\/\\]+/g;
 
-/** 
-* [Base request class]
+/**
+* Base request class
 * @param {Object} request
 * @param {Object} response
 * @param {Object} server
@@ -103,8 +103,8 @@ exports.request = class extends events {
 	}
 }
 
-/** 
-* [Base response class]
+/**
+* Base response class
 * @param {Object} request
 * @param {Object} response
 * @param {Object} server
@@ -486,7 +486,7 @@ exports.size = {
 }
 
 /** 
-* [create_server create an http(s) server with config provided]
+* Create an http(s) server with config provided
 * @param {Object} config
 * @param {Array} config.routes all routes to go through, [ ['/regex or string', (req, res) => {} ] ]
 * @param {Number} config.port port to run server on
