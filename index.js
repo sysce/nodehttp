@@ -316,7 +316,7 @@ exports.response = class extends events {
 	* @returns {String}
 	*/
 	sanitize(string){
-		return (str + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('')
+		return (string + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('')
 	}
 	/**
 	* Sends a page from the `error.html` file in the `cgi` folder in the static folder, provides the variables $title and $reason in syntax
