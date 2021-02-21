@@ -2,10 +2,47 @@
 var fs = require('fs'),
 	path = require('path'),
 	doc = require('documentation'),
-	file = path.join(__dirname, 'index.js');
+	file = path.join(__dirname, 'index.js'),
+	ti = '```',
+	t = '`';
 
 console.log('starting..');
 
-doc.build([ file ], {}).then(data => doc.formats.md(data, { markdownToc: true })).then(data => fs.promises.writeFile(path.join(__dirname, 'readme.md'), "# NODEHTTP\n## Lightweight express alternative, similar syntax\n\n<a href=\"https://www.npmjs.com/package/sys-nodehttp\">![Download](https://img.shields.io/npm/dw/sys-nodehttp)</a>\n\n### adding to your package\n\n```sh\nnpm i sys-nodehttp\n```\n\n### usage:\n\n(make sure you do not have any conflicting package names)\n\n```js\nvar path = require('path'),\n\tnodehttp = require('sys-nodehttp'),\n\tserver = new nodehttp.server({\n\t\t// a directory named web serves static content\n\t\tstatic: path.join(__dirname, 'web'),\n\t\t// request routes\n\t\troutes: [\n\t\t\t[ 'GET', '/api', (req, res) => {\n\t\t\t\tres.send('Hello world!');\n\t\t\t} ],\n\t\t\t[ 'POST', '/api', (req, res) => {\n\t\t\t\tconsole.log('Recieved POST with body:', req.body);\n\t\t\t} ],\n\t\t],\n\t\tport: process.env.PORT || 8080,\n\t\taddress: '0.0.0.0',\n\t});\n```\n\n### API:\n" + data)).then(() => {
+doc.build([ file ], { shallow: true }).then(data => doc.formats.md(data, { markdownToc: true })).then(data => fs.promises.writeFile(path.join(__dirname, 'readme.md'), `# NODEHTTP
+## Lightweight express alternative, similar syntax
+
+<a href="https://www.npmjs.com/package/sys-nodehttp">![Download](https://img.shields.io/npm/dw/sys-nodehttp)</a>
+
+### adding to your package
+
+${ti}sh
+npm i sys-nodehttp
+${ti}
+
+### usage:
+
+(make sure you do not have any conflicting package names)
+
+${ti}js
+var path = require('path'),
+	nodehttp = require('sys-nodehttp'),
+	server = new nodehttp.server({
+		// a directory named web serves static content
+		static: path.join(__dirname, 'web'),
+		// request routes
+		routes: [
+			[ 'GET', '/api', (req, res) => {
+				res.send('Hello world!');
+			} ],
+			[ 'POST', '/api', (req, res) => {
+				console.log('Recieved POST with body:', req.body);
+			} ],
+		],
+		port: process.env.PORT || 8080,
+		address: '0.0.0.0',
+	});
+${ti}
+
+### API:\n` + data)).then(() => {
 	console.log('finished writing docs, find output at ' + __dirname);
 });
