@@ -26,6 +26,15 @@ exports.sanitize = str => (str + '').split('').map(char => '&#' + char.charCodeA
 
 exports.path_regex = /[\/\\]+/g;
 
+/** 
+* [Base request class]
+* @param {Object} request
+* @param {Object} response
+* @param {Object} server
+* @property {Object} headers - Contains HTTP headers
+* @property {Object|String|Array|Number} body - Contains POST body if applicable (once process is called)
+* @property {URL} url - URL object from request (contains host)
+*/
 exports.request = class extends events {
 	constructor(req, res, server){
 		super();
@@ -57,6 +66,10 @@ exports.request = class extends events {
 		
 		this.req.on('close', err => this.emit('close', err));
 	}
+	/**
+	* Process the POST data if applicable
+	* @returns {Promise}
+	*/
 	process(){
 		return new Promise((resolve, reject) => {
 			if(!exports.http.body.includes(this.method))return resolve();
@@ -90,6 +103,15 @@ exports.request = class extends events {
 	}
 }
 
+/** 
+* [Base response class]
+* @param {Object} request
+* @param {Object} response
+* @param {Object} server
+* @property {Object} cookies - Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
+* @property {Object|String|Array|Number} body - Contains POST body if applicable (once process is called)
+* @property {URL} headers - Set headers
+*/
 exports.response = class extends events {
 	constructor(req, res, server){
 		super();
@@ -106,19 +128,28 @@ exports.response = class extends events {
 		
 		this.headers = new Map();
 	}
+	/**
+	* Set the response status code
+	* @param {Number} HTTP Status
+	*/
 	status(code){
 		this.resp.status = code;
 		
 		return this;
 	}
+	/**
+	* Set a header
+	* @param {String} Name
+	* @param {String} Value
+	*/
 	set(name, value){
 		this.headers[(name + '').toLowerCase()] = value + '';
 		
 		return this;
 	}
-	get(name){
-		return this.req.headers[name];
-	}
+	/**
+	* Meant to be called internally, finalizes request preventing writing headers
+	*/
 	finalize(){
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
@@ -168,12 +199,20 @@ exports.response = class extends events {
 		
 		this.org_res.writeHead(status, this.headers);
 	}
+	/**
+	* Pipes the stream to the response
+	* @param {Stream} Stream
+	*/
 	pipe_from(stream){
 		this.finalize();
 		
 		stream.on('data', chunk => this.write(chunk));
 		stream.on('end', chunk => this.end(chunk));
 	}
+	/**
+	* Writes data to the response
+	* @param {String|Buffer} [Body]
+	*/
 	write(data){
 		var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
 		
@@ -181,6 +220,10 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	/**
+	* Closes the response with any additional data
+	* @param {String|Buffer} Body
+	*/
 	end(data){
 		if(data){
 			var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
@@ -192,6 +235,10 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	/**
+	* Closes the response with data and sends headers
+	* @param {String|Buffer} Body
+	*/
 	send(body){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		
@@ -207,6 +254,10 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	/**
+	* Calls send with JSON.stringifyied data from the body
+	* @param {Object|Array|String|Number} Body
+	*/
 	json(object){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		
@@ -214,6 +265,11 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	/**
+	* Pipes data from zlib to the response
+	* @param {String} Encoding ( can be gzip, br, and deflate )
+	* @param {String|Buffer} [Body]
+	*/
 	compress(type, body){
 		if(!['br', 'gzip', 'deflate'].includes(type))throw new TypeError('unknown compression `' + exports.wrap(type));
 		
@@ -230,6 +286,10 @@ exports.response = class extends events {
 		
 		return this.set('content-encoding', type).pipe_from(stream);
 	}
+	/**
+	* Sends a static file with a mime type, good for sending video files or anything streamed
+	* @param {String} [File] By default the file is resolved by servers static path
+	*/
 	static(pub_file = path.join(this.server.static, this.req.url.pathname)){
 		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
 		
@@ -252,6 +312,11 @@ exports.response = class extends events {
 		
 		this.pipe_from(fs.createReadStream(pub_file));
 	}
+	/**
+	* Sends a page from the `error.html` file in the `cgi` folder in the static folder, provides the variables $title and $reason in syntax
+	* @param {Number} HTTP status code
+	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
+	*/
 	cgi_status(code, message = exports.http.status_codes[code], title = code){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
@@ -274,6 +339,11 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	/**
+	* Sets the status code and location header
+	* @param {Number} [Status] Param can be the location and will be set to 302
+	* @param {String|URL} URL
+	*/
 	redirect(status, redir){
 		if(!redir)redir = status, status = 302;
 		
@@ -288,11 +358,19 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	/**
+	* Sets the content-type header
+	* @param {String} Content type
+	*/
 	content_type(value){
 		this.set('content-type', value);
 		
 		return this;
 	}
+	/**
+	* Sets the content-type header, alias of content_type
+	* @param {String} Content type
+	*/
 	contentType(value){
 		this.set('content-type', value);
 		
