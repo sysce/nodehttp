@@ -64,28 +64,30 @@ var path = require('path'),
         -   [Parameters][24]
     -   [static][25]
         -   [Parameters][26]
-    -   [cgi_status][27]
+    -   [sanitize][27]
         -   [Parameters][28]
-    -   [redirect][29]
+    -   [cgi_status][29]
         -   [Parameters][30]
-    -   [content_type][31]
+    -   [redirect][31]
         -   [Parameters][32]
-    -   [contentType][33]
+    -   [content_type][33]
         -   [Parameters][34]
--   [server][35]
-    -   [Parameters][36]
-    -   [get][37]
-        -   [Parameters][38]
-    -   [post][39]
+    -   [contentType][35]
+        -   [Parameters][36]
+-   [server][37]
+    -   [Parameters][38]
+    -   [get][39]
         -   [Parameters][40]
-    -   [put][41]
+    -   [post][41]
         -   [Parameters][42]
-    -   [patch][43]
+    -   [put][43]
         -   [Parameters][44]
-    -   [delete][45]
+    -   [patch][45]
         -   [Parameters][46]
-    -   [use][47]
+    -   [delete][47]
         -   [Parameters][48]
+    -   [use][49]
+        -   [Parameters][50]
 
 ## request
 
@@ -95,21 +97,21 @@ Base request class
 
 ### Parameters
 
--   `request` **[Object][49]** 
--   `response` **[Object][49]** 
--   `server` **[Object][49]** 
+-   `request` **[Object][51]** 
+-   `response` **[Object][51]** 
+-   `server` **[Object][51]** 
 
 ### Properties
 
--   `headers` **[Object][49]** Contains HTTP headers
--   `body` **([Object][49] \| [String][50] \| [Array][51] \| [Number][52])** Contains POST body if applicable (once process is called)
--   `url` **[URL][53]** URL object from request (contains host)
+-   `headers` **[Object][51]** Contains HTTP headers
+-   `body` **([Object][51] \| [String][52] \| [Array][53] \| [Number][54])** Contains POST body if applicable (once process is called)
+-   `url` **[URL][55]** URL object from request (contains host)
 
 ### process
 
 Process the POST data if applicable
 
-Returns **[Promise][54]** 
+Returns **[Promise][56]** 
 
 ## response
 
@@ -119,15 +121,15 @@ Base response class
 
 ### Parameters
 
--   `request` **[Object][49]** 
--   `response` **[Object][49]** 
--   `server` **[Object][49]** 
+-   `request` **[Object][51]** 
+-   `response` **[Object][51]** 
+-   `server` **[Object][51]** 
 
 ### Properties
 
--   `cookies` **[Object][49]** Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
--   `body` **([Object][49] \| [String][50] \| [Array][51] \| [Number][52])** Contains POST body if applicable (once process is called)
--   `headers` **[URL][53]** Set headers
+-   `cookies` **[Object][51]** Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
+-   `body` **([Object][51] \| [String][52] \| [Array][53] \| [Number][54])** Contains POST body if applicable (once process is called)
+-   `headers` **[URL][55]** Set headers
 
 ### status
 
@@ -136,7 +138,7 @@ Set the response status code
 #### Parameters
 
 -   `code`  
--   `HTTP` **[Number][52]** Status
+-   `HTTP` **[Number][54]** Status
 
 ### set
 
@@ -146,8 +148,8 @@ Set a header
 
 -   `name`  
 -   `value`  
--   `Name` **[String][50]** 
--   `Value` **[String][50]** 
+-   `Name` **[String][52]** 
+-   `Value` **[String][52]** 
 
 ### finalize
 
@@ -160,7 +162,7 @@ Pipes the stream to the response
 #### Parameters
 
 -   `stream`  
--   `Stream` **[Stream][55]** 
+-   `Stream` **[Stream][57]** 
 
 ### write
 
@@ -169,7 +171,7 @@ Writes data to the response
 #### Parameters
 
 -   `data`  
--   `Body` **([String][50] \| [Buffer][56])?** 
+-   `Body` **([String][52] \| [Buffer][58])?** 
 
 ### end
 
@@ -178,7 +180,7 @@ Closes the response with any additional data
 #### Parameters
 
 -   `data`  
--   `Body` **([String][50] \| [Buffer][56])** 
+-   `Body` **([String][52] \| [Buffer][58])** 
 
 ### send
 
@@ -187,7 +189,7 @@ Closes the response with data and sends headers
 #### Parameters
 
 -   `body`  
--   `Body` **([String][50] \| [Buffer][56])** 
+-   `Body` **([String][52] \| [Buffer][58])** 
 
 ### json
 
@@ -196,7 +198,7 @@ Calls send with JSON.stringifyied data from the body
 #### Parameters
 
 -   `object`  
--   `Body` **([Object][49] \| [Array][51] \| [String][50] \| [Number][52])** 
+-   `Body` **([Object][51] \| [Array][53] \| [String][52] \| [Number][54])** 
 
 ### compress
 
@@ -206,8 +208,8 @@ Pipes data from zlib to the response
 
 -   `type`  
 -   `body`  
--   `Encoding` **[String][50]** ( can be gzip, br, and deflate )
--   `Body` **([String][50] \| [Buffer][56])?** 
+-   `Encoding` **[String][52]** ( can be gzip, br, and deflate )
+-   `Body` **([String][52] \| [Buffer][58])?** 
 
 ### static
 
@@ -216,7 +218,18 @@ Sends a static file with a mime type, good for sending video files or anything s
 #### Parameters
 
 -   `pub_file`   (optional, default `path.join(this.server.static,this.req.url.pathname)`)
--   `File` **[String][50]?** By default the file is resolved by servers static path
+-   `File` **[String][52]?** By default the file is resolved by servers static path
+
+### sanitize
+
+Sanitizes a string
+
+#### Parameters
+
+-   `string`  
+-   `String`  
+
+Returns **[String][52]** 
 
 ### cgi_status
 
@@ -227,8 +240,8 @@ Sends a page from the `error.html` file in the `cgi` folder in the static folder
 -   `code`  
 -   `message`   (optional, default `exports.http.status_codes[code]`)
 -   `title`   (optional, default `code`)
--   `HTTP` **[Number][52]** status code
--   `Message` **([String][50] \| [Error][57] \| [Number][52] \| [Object][49] \| [Array][51])** , util.format is called on errors and has <pre> tags added
+-   `HTTP` **[Number][54]** status code
+-   `Message` **([String][52] \| [Error][59] \| [Number][54] \| [Object][51] \| [Array][53])** , util.format is called on errors and has <pre> tags added
 
 ### redirect
 
@@ -238,8 +251,8 @@ Sets the status code and location header
 
 -   `status`  
 -   `redir`  
--   `Status` **[Number][52]?** Param can be the location and will be set to 302
--   `URL` **([String][50] \| [URL][53])** 
+-   `Status` **[Number][54]?** Param can be the location and will be set to 302
+-   `URL` **([String][52] \| [URL][55])** 
 
 ### content_type
 
@@ -248,7 +261,7 @@ Sets the content-type header
 #### Parameters
 
 -   `value`  
--   `Content` **[String][50]** type
+-   `Content` **[String][52]** type
 
 ### contentType
 
@@ -257,7 +270,7 @@ Sets the content-type header, alias of content_type
 #### Parameters
 
 -   `value`  
--   `Content` **[String][50]** type
+-   `Content` **[String][52]** type
 
 ## server
 
@@ -267,17 +280,17 @@ Create an http(s) server with config provided
 
 ### Parameters
 
--   `config` **[Object][49]** 
-    -   `config.routes` **[Array][51]** all routes to go through, \[ ['/regex or string', (req, res) => {} ] ]
-    -   `config.port` **[Number][52]** port to run server on
-    -   `config.address` **[String][50]** address to run server on
-    -   `config.static` **[String][50]** static directory to load files from
-    -   `config.max_response_size` **[String][50]** maximum response size ( BYTES )
-    -   `config.ssl` **[Object][49]** ssl data to use with server, if not specified server will be HTTP only
-        -   `config.ssl.key` **[Object][49]** location to key file
-        -   `config.ssl.crt` **[Object][49]** location to crt file
-    -   `config.global` **[Object][49]** global arguments to pass to rhtml
-    -   `config.ready` **[Function][58]** function to call on server being ready
+-   `config` **[Object][51]** 
+    -   `config.routes` **[Array][53]** all routes to go through, \[ ['/regex or string', (req, res) => {} ] ]
+    -   `config.port` **[Number][54]** port to run server on
+    -   `config.address` **[String][52]** address to run server on
+    -   `config.static` **[String][52]** static directory to load files from
+    -   `config.max_response_size` **[String][52]** maximum response size ( BYTES )
+    -   `config.ssl` **[Object][51]** ssl data to use with server, if not specified server will be HTTP only
+        -   `config.ssl.key` **[Object][51]** location to key file
+        -   `config.ssl.crt` **[Object][51]** location to crt file
+    -   `config.global` **[Object][51]** global arguments to pass to rhtml
+    -   `config.ready` **[Function][60]** function to call on server being ready
 
 ### get
 
@@ -287,8 +300,8 @@ add a GET route
 
 -   `a1`  
 -   `a2`  
--   `Path` **[string][50]** 
--   `Handler` **[function][58]** 
+-   `Path` **[string][52]** 
+-   `Handler` **[function][60]** 
 
 ### post
 
@@ -298,8 +311,8 @@ add a POST route
 
 -   `a1`  
 -   `a2`  
--   `Path` **[string][50]** 
--   `Handler` **[function][58]** 
+-   `Path` **[string][52]** 
+-   `Handler` **[function][60]** 
 
 ### put
 
@@ -309,8 +322,8 @@ add a PUT route
 
 -   `a1`  
 -   `a2`  
--   `Path` **[string][50]** 
--   `Handler` **[function][58]** 
+-   `Path` **[string][52]** 
+-   `Handler` **[function][60]** 
 
 ### patch
 
@@ -320,8 +333,8 @@ add a PATCH route
 
 -   `a1`  
 -   `a2`  
--   `Path` **[string][50]** 
--   `Handler` **[function][58]** 
+-   `Path` **[string][52]** 
+-   `Handler` **[function][60]** 
 
 ### delete
 
@@ -331,8 +344,8 @@ add a DELETE route
 
 -   `a1`  
 -   `a2`  
--   `Path` **[string][50]** 
--   `Handler` **[function][58]** 
+-   `Path` **[string][52]** 
+-   `Handler` **[function][60]** 
 
 ### use
 
@@ -342,8 +355,8 @@ add a route for all
 
 -   `a1`  
 -   `a2`  
--   `Path` **[string][50]** 
--   `Handler` **[function][58]** 
+-   `Path` **[string][52]** 
+-   `Handler` **[function][60]** 
 
 [1]: #request
 
@@ -397,66 +410,70 @@ add a route for all
 
 [26]: #parameters-10
 
-[27]: #cgi_status
+[27]: #sanitize
 
 [28]: #parameters-11
 
-[29]: #redirect
+[29]: #cgi_status
 
 [30]: #parameters-12
 
-[31]: #content_type
+[31]: #redirect
 
 [32]: #parameters-13
 
-[33]: #contenttype
+[33]: #content_type
 
 [34]: #parameters-14
 
-[35]: #server
+[35]: #contenttype
 
 [36]: #parameters-15
 
-[37]: #get
+[37]: #server
 
 [38]: #parameters-16
 
-[39]: #post
+[39]: #get
 
 [40]: #parameters-17
 
-[41]: #put
+[41]: #post
 
 [42]: #parameters-18
 
-[43]: #patch
+[43]: #put
 
 [44]: #parameters-19
 
-[45]: #delete
+[45]: #patch
 
 [46]: #parameters-20
 
-[47]: #use
+[47]: #delete
 
 [48]: #parameters-21
 
-[49]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
+[49]: #use
 
-[50]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
+[50]: #parameters-22
 
-[51]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
+[51]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
 
-[52]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
+[52]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
 
-[53]: https://developer.mozilla.org/docs/Web/API/URL/URL
+[53]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
 
-[54]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise
+[54]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
 
-[55]: https://nodejs.org/api/stream.html
+[55]: https://developer.mozilla.org/docs/Web/API/URL/URL
 
-[56]: https://nodejs.org/api/buffer.html
+[56]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise
 
-[57]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error
+[57]: https://nodejs.org/api/stream.html
 
-[58]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function
+[58]: https://nodejs.org/api/buffer.html
+
+[59]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error
+
+[60]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function

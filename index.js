@@ -22,8 +22,6 @@ exports.http = {body:['PUT','PATCH','DELETE','POST'],status_codes:{"100":"Contin
 
 exports.hash = str => { var hash = 5381, i = str.length; while(i)hash = (hash * 33) ^ str.charCodeAt(--i); return hash >>> 0; };
 
-exports.sanitize = str => (str + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('');
-
 exports.path_regex = /[\/\\]+/g;
 
 /**
@@ -313,6 +311,14 @@ exports.response = class extends events {
 		this.pipe_from(fs.createReadStream(pub_file));
 	}
 	/**
+	* Sanitizes a string
+	* @param {String}
+	* @returns {String}
+	*/
+	sanitize(string){
+		return (str + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('')
+	}
+	/**
 	* Sends a page from the `error.html` file in the `cgi` folder in the static folder, provides the variables $title and $reason in syntax
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
@@ -321,7 +327,7 @@ exports.response = class extends events {
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
-		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(exports.format(message)) + '</pre>';
+		if(message instanceof Error)title = message.code, message = '<pre>' + this.sanitize(exports.format(message)) + '</pre>';
 		else message = message;
 		
 		// exports.sanitize preferred
