@@ -90,7 +90,7 @@ var path = require('path'),
 
 **Extends events**
 
-[Base request class]
+Base request class
 
 ### Parameters
 
@@ -114,7 +114,7 @@ Returns **[Promise][54]**
 
 **Extends events**
 
-[Base response class]
+Base response class
 
 ### Parameters
 
@@ -262,7 +262,7 @@ Sets the content-type header, alias of content_type
 
 **Extends events**
 
-[create_server create an http(s) server with config provided]
+create_server create an http(s) server with config provided
 
 ### Parameters
 
