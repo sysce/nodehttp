@@ -116,7 +116,7 @@ exports.response = class extends events {
 		
 		this.server = server;
 		
-		this.org_res = res;
+		this.res = res;
 		
 		this.req = new exports.request(req, res, server);
 		
@@ -195,7 +195,7 @@ exports.response = class extends events {
 			this.headers['set-cookie'] = this.headers['set-cookie'].join(' ');
 		}
 		
-		this.org_res.writeHead(status, this.headers);
+		this.res.writeHead(status, this.headers);
 	}
 	/**
 	* Pipes the stream to the response
@@ -214,7 +214,7 @@ exports.response = class extends events {
 	write(data){
 		var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
 		
-		this.org_res.write(buf);
+		this.res.write(buf);
 		
 		return this;
 	}
@@ -226,9 +226,9 @@ exports.response = class extends events {
 		if(data){
 			var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
 			
-			this.org_res.end(buf);
+			this.res.end(buf);
 		}else{
-			this.org_res.end();
+			this.res.end();
 		}
 		
 		return this;
@@ -246,7 +246,7 @@ exports.response = class extends events {
 		
 		this.write(body);
 		
-		this.org_res.end();
+		this.res.end();
 		
 		this.resp.sent_body = true;
 		
