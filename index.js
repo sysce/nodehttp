@@ -405,7 +405,7 @@ exports.html = (fn, body, req, res, state) => {
 			args = {
 				__dirname: path.dirname(fn),
 				file(file){
-					return path.resolve(args.__dirname, file);
+					return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(args.__dirname, file);
 				},
 				state: state,
 				echo(str){
@@ -419,10 +419,10 @@ exports.html = (fn, body, req, res, state) => {
 					out += exports.html(file, text, req, res, state);
 				},
 				require(file){
-					return require(path.resolve(args.__dirname, file))
+					return require(this.file(file))
 				},
 				filemtime(file){
-					file = path.resolve(args.__dirname, file);
+					file = this.file(file);
 					
 					if(!fs.existsSync(file))throw new TypeError('cannot find file ' + exports.wrap(file));
 					
@@ -436,7 +436,7 @@ exports.html = (fn, body, req, res, state) => {
 			func = new Function(Object.keys(args).concat(Object.keys(res.server.global)), exp);
 			
 			try{
-				Reflect.apply(func, state, Object.values(args).concat(Object.values(res.server.global)));
+				Reflect.apply(func, state, Object.values(args).concat(Object.values(res.server.global)).map(func => typeof func == 'function' ? func.bind(args) : func));
 			}catch(err){
 				var message = '@' + fn + ', error at execution:\n' + util.format(err);
 				
