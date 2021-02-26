@@ -386,7 +386,7 @@ exports.response = class extends events {
 
 exports.regex = {
 	exp: /<\?(=|js)([\s\S]*?)\?>/g,
-	state: /\$\S/,
+	state: /\$\S/g,
 	proto: /^(?:f|ht)tps?\:\/\//,
 };
 
@@ -417,6 +417,8 @@ exports.html = (fn, body, req, res, state) => {
 					if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
 					
 					out += exports.html(file, text, req, res, state);
+					
+					return '';
 				},
 				require(file){
 					return require(this.file(file))
