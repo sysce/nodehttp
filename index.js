@@ -306,7 +306,11 @@ exports.response = class extends events {
 		this.status(200);
 		this.set('content-type', mime);
 		
-		if(mime == 'text/html' && this.server.execution)return fs.promises.readFile(pub_file, 'utf8').then(body => this.send(exports.html(pub_file, body, this.req, this, {}))).catch(err => this.send(util.format(err)));
+		if(mime == 'text/html' && this.server.execution)return fs.promises.readFile(pub_file, 'utf8').then(body => {
+			var out = exports.html(pub_file, body, this.req, this, {});
+			
+			if(!this.resp.sent_body && !this.resp.sent_head)this.send(out);
+		}).catch(err => this.send(util.format(err)));
 		
 		this.pipe_from(fs.createReadStream(pub_file));
 	}
@@ -360,7 +364,9 @@ exports.response = class extends events {
 		this.set('content-type', 'text/html');
 		this.status(status);
 		
-		this.send(`You should be redirected to <a href=${exports.wrap(redir)}>${redir}</a> shortly..`);
+		this.finalize();
+		
+		if(!this.resp.sent_body)this.send(`You should be redirected to <a href=${exports.wrap(redir)}>${redir}</a> shortly..`);
 		
 		return this;
 	}
