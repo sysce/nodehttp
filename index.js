@@ -212,6 +212,8 @@ exports.response = class extends events {
 	* @param {String|Buffer} [Body]
 	*/
 	write(data){
+		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		
 		var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
 		
 		this.res.write(buf);
@@ -223,13 +225,11 @@ exports.response = class extends events {
 	* @param {String|Buffer} Body
 	*/
 	end(data){
-		if(data){
-			var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
-			
-			this.res.end(buf);
-		}else{
-			this.res.end();
-		}
+		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		
+		this.res.end(data ? (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size) : null);
+		
+		this.resp.sent_body = true;
 		
 		return this;
 	}
@@ -309,7 +309,7 @@ exports.response = class extends events {
 		if(mime == 'text/html' && this.server.execution)return fs.promises.readFile(pub_file, 'utf8').then(body => {
 			var out = exports.html(pub_file, body, this.req, this, {});
 			
-			if(!this.resp.sent_body && !this.resp.sent_head)this.send(out);
+			if(!this.resp.sent_body)this.send(out);
 		}).catch(err => this.send(util.format(err)));
 		
 		this.pipe_from(fs.createReadStream(pub_file));
@@ -355,6 +355,9 @@ exports.response = class extends events {
 	* @param {String|URL} URL
 	*/
 	redirect(status, redir){
+		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
+		
 		if(!redir)redir = status, status = 302;
 		
 		// url.resolve(this.req.url.origin, redir);
@@ -364,9 +367,7 @@ exports.response = class extends events {
 		this.set('content-type', 'text/html');
 		this.status(status);
 		
-		this.finalize();
-		
-		if(!this.resp.sent_body)this.send(`You should be redirected to <a href=${exports.wrap(redir)}>${redir}</a> shortly..`);
+		this.send('');
 		
 		return this;
 	}
