@@ -53,7 +53,6 @@ echo(1e3 / 2);
 ?>
 
 <p>You are currently on <?=req.url.host?></p>
-?>
 ```
 
 ### API:
