@@ -1,5 +1,6 @@
 'use strict';
 var fs = require('fs'),
+	vm = require('vm'),
 	url = require('url'),
 	path = require('path'),
 	util =  require('util'),
@@ -392,7 +393,7 @@ exports.response = class extends events {
 };
 
 exports.regex = {
-	exp: /<\?(=|js)([\s\S]*?)\?>/g,
+	exp: /(?<!\\)<\?(=|js)([\s\S]*?)(?<!\\)\?>/g,
 	state: /\$\S/g,
 	proto: /^(?:f|ht)tps?\:\/\//,
 };
@@ -404,22 +405,22 @@ exports.html = (fn, body, req, res, state) => {
 	
 	// replace and execute both in the same regex to avoid content being insert and ran
 	
-	body = body.replace(exports.regex.exp, (m, type, exp) => {
-		exp = (type == '=' ? 'echo(' + exp + ')' : exp).replace(exports.regex.state, 'state.$&');
+	body = body.replace(exports.regex.exp, (m, type, exp, func_offset) => {
+		exp = '"use strict";' + (type == '=' ? 'echo(' + exp + ')' : exp).replace(exports.regex.state, 'state.$&');
 		
 		var out = '',
 			func,
-			args = {
+			defs = {
 				__dirname: path.dirname(fn),
 				file(file){
-					return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(args.__dirname, file);
+					return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(defs.__dirname, file);
 				},
 				state: state,
 				echo(str){
 					return out += str;
 				},
 				include(file){
-					var text = fs.readFileSync(args.file(file), 'utf8');
+					var text = fs.readFileSync(defs.file(file), 'utf8');
 					
 					if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
 					
@@ -428,10 +429,10 @@ exports.html = (fn, body, req, res, state) => {
 					return '';
 				},
 				require(file){
-					return require(this.file(file))
+					return require(defs.file(file))
 				},
 				filemtime(file){
-					file = this.file(file);
+					file = defs.file(file);
 					
 					if(!fs.existsSync(file))throw new TypeError('cannot find file ' + exports.wrap(file));
 					
@@ -442,24 +443,12 @@ exports.html = (fn, body, req, res, state) => {
 			};
 		
 		try{
-			func = new Function(Object.keys(args).concat(Object.keys(res.server.global)), exp);
-			
-			try{
-				Reflect.apply(func, state, Object.values(args).concat(Object.values(res.server.global)).map(func => typeof func == 'function' ? func.bind(args) : func));
-			}catch(err){
-				var message = '@' + fn + ', error at execution:\n' + util.format(err);
-				
-				console.error(message);
-				
-				out += '<pre>' + message + '</pre>';
-			}
+			vm.runInNewContext(exp, Object.assign(defs, res.server.global, state), { filename: fn });
 		}catch(err){
-			var message = '@' + fn + ', error at construction:\n' + util.format(err);
-			
-			console.error(message);
-			
-			out += '<pre>' + message + '</pre>';
+			console.error(err);
 		}
+		
+		defs = null;
 		
 		return out;
 	});

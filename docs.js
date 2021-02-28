@@ -43,6 +43,29 @@ var path = require('path'),
 	});
 ${ti}
 
+### JHTML:
+
+Unlike express, a way to do calculations or use data serverside is included. The server objects ${t}execution${t} param will enable this, like php except with JS.
+
+- A lot of PHP functions are implemented such as filemtime, echo, include.
+-  Variables and NodeJS functions are implemented too such as: __dirname, require
+- ${t}file${t} is a function that will resolve any path from the webserver root.
+
+An example of its usage is:
+
+${ti}
+<!-- index.html -->
+<h1>My web page</h1>
+
+<p>1e3 divided by 2:</p>
+<?js
+echo(1e3 / 2);
+?>
+
+<p>You are currently on <?=req.url.host?></p>
+?>
+${ti}
+
 ### API:\n` + data)).then(() => {
 	console.log('finished writing docs, find output at ' + __dirname);
 });
