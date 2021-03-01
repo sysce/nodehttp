@@ -33,22 +33,22 @@ var path = require('path'),
 	});
 ```
 
-### JHTML:
+### Execution:
 
 Unlike express, a way to do calculations or use data serverside is included. The server objects `execution` param will enable this, like php except with JS.
 
-- A lot of PHP functions are implemented such as filemtime, echo, include.
+- A small amount of PHP functions are implemented such as filemtime, echo, include.
 -  Variables and NodeJS functions are implemented too such as: __dirname, require
 - `file` is a function that will resolve any path from the webserver root.
 
 An example of its usage is:
 
 ```
-<!-- index.html -->
+<!-- index.jhtml -->
 <h1>My web page</h1>
 
 <p>1e3 divided by 2:</p>
-<?js
+<?php
 echo(1e3 / 2);
 ?>
 
@@ -302,17 +302,16 @@ Create an http(s) server with config provided
 
 ### Parameters
 
--   `config` **[Object][51]** 
-    -   `config.routes` **[Array][53]** all routes to go through, \[ ['/regex or string', (req, res) => {} ] ]
-    -   `config.port` **[Number][54]** port to run server on
-    -   `config.address` **[String][52]** address to run server on
-    -   `config.static` **[String][52]** static directory to load files from
-    -   `config.max_response_size` **[String][52]** maximum response size ( BYTES )
-    -   `config.ssl` **[Object][51]** ssl data to use with server, if not specified server will be HTTP only
-        -   `config.ssl.key` **[Object][51]** location to key file
-        -   `config.ssl.crt` **[Object][51]** location to crt file
-    -   `config.global` **[Object][51]** global arguments to pass to rhtml
-    -   `config.ready` **[Function][60]** function to call on server being ready
+-   `config` **[Object][51]?** 
+    -   `config.routes` **[Array][53]?** all routes to go through, \[ ['/regex or string', (req, res) => {} ] ]
+    -   `config.port` **[Number][54]?** port to run server on
+    -   `config.address` **[String][52]?** address to run server on
+    -   `config.static` **[String][52]?** static directory to load files from
+    -   `config.global` **[Object][51]?** global arguments to pass to execution
+    -   `config.execute` **[Array][53]?** An array of extensions that will be executed like PHP eg [ '.html', '.php' ]
+    -   `config.index` **[Array][53]?** An array of filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
+    -   `config.ready` **[Function][60]?** function to call on server being ready
+-   `Object`  ssl] - data to use with server, if not specified server will be HTTP only
 
 ### get
 

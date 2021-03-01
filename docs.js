@@ -43,22 +43,22 @@ var path = require('path'),
 	});
 ${ti}
 
-### JHTML:
+### Execution:
 
 Unlike express, a way to do calculations or use data serverside is included. The server objects ${t}execution${t} param will enable this, like php except with JS.
 
-- A lot of PHP functions are implemented such as filemtime, echo, include.
+- A small amount of PHP functions are implemented such as filemtime, echo, include.
 -  Variables and NodeJS functions are implemented too such as: __dirname, require
 - ${t}file${t} is a function that will resolve any path from the webserver root.
 
 An example of its usage is:
 
 ${ti}
-<!-- index.html -->
+<!-- index.jhtml -->
 <h1>My web page</h1>
 
 <p>1e3 divided by 2:</p>
-<?js
+<?php
 echo(1e3 / 2);
 ?>
 

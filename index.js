@@ -7,7 +7,8 @@ var fs = require('fs'),
 	zlib = require('zlib'),
 	http = require('http'),
 	https = require('https'),
-	events = require('events');
+	events = require('events'),
+	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK || 0).then(() => resolve(true)).catch(err => resolve(false)));
 
 // incase this is confused for util or sys module
 exports.format = util.format;
@@ -205,8 +206,7 @@ exports.response = class extends events {
 	pipe_from(stream){
 		this.finalize();
 		
-		stream.on('data', chunk => this.write(chunk));
-		stream.on('end', chunk => this.end(chunk));
+		stream.pipe(this.res);
 	}
 	/**
 	* Writes data to the response
@@ -215,9 +215,7 @@ exports.response = class extends events {
 	write(data){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		
-		var buf = (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size);
-		
-		this.res.write(buf);
+		this.res.write(data);
 		
 		return this;
 	}
@@ -228,7 +226,7 @@ exports.response = class extends events {
 	end(data){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		
-		this.res.end(data ? (Buffer.isBuffer(data) ? data : Buffer.from(data)).slice(0, this.server.max_response_size) : null);
+		this.res.end(data);
 		
 		this.resp.sent_body = true;
 		
@@ -245,9 +243,7 @@ exports.response = class extends events {
 		
 		if(['boolean', 'number'].includes(typeof body))body += '';
 		
-		this.write(body);
-		
-		this.res.end();
+		this.end(body);
 		
 		this.resp.sent_body = true;
 		
@@ -258,8 +254,6 @@ exports.response = class extends events {
 	* @param {Object|Array|String|Number} Body
 	*/
 	json(object){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
-		
 		this.send(JSON.stringify(object));
 		
 		return this;
@@ -289,25 +283,35 @@ exports.response = class extends events {
 	* Sends a static file with a mime type, good for sending video files or anything streamed
 	* @param {String} [File] By default the file is resolved by servers static path
 	*/
-	static(pub_file = path.join(this.server.static, this.req.url.pathname)){
+	async static(pub_file = path.join(this.server.static, this.req.url.pathname)){
 		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
 		
-		if(!fs.existsSync(pub_file))return this.cgi_status(404);
+		if(!(await fs_promises_exists(pub_file)))return this.cgi_status(404);
 		
-		if(fs.statSync(pub_file).isDirectory()){
+		if((await fs.promises.stat(pub_file)).isDirectory()){
 			if(!this.req.url.pathname.endsWith('/'))return this.redirect(301, this.req.url.pathname + '/');
 			
-			pub_file = path.join(pub_file, 'index.html');
+			var resolved;
+			
+			for(var ind in this.server.index){
+				if(await fs_promises_exists(resolved = path.join(pub_file, this.server.index[ind])))break;
+				else resolved = pub_file;
+			}
+			
+			console.log(resolved);
+			
+			pub_file = resolved;
 		}
 		
-		if(!fs.existsSync(pub_file))return this.cgi_status(404);
+		if(!(await fs_promises_exists(pub_file)))return this.cgi_status(404);
 		
-		var mime = exports.http.mimes[(path.extname(pub_file) + '').substr(1)];
+		var ext = (path.extname(pub_file) + ''),
+			mime = exports.http.mimes[ext.substr(1)];
 		
 		this.status(200);
 		this.set('content-type', mime);
 		
-		if(mime == 'text/html' && this.server.execution)return fs.promises.readFile(pub_file, 'utf8').then(body => {
+		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file, 'utf8').then(body => {
 			var out = exports.html(pub_file, body, this.req, this, {});
 			
 			if(!this.resp.sent_body)this.send(out);
@@ -393,7 +397,7 @@ exports.response = class extends events {
 };
 
 exports.regex = {
-	exp: /(?<!\\)<\?(=|js)([\s\S]*?)(?<!\\)\?>/g,
+	exp: /(?<!\\)<\?(=|js|php)([\s\S]*?)(?<!\\)\?>/g,
 	state: /\$\S/g,
 	proto: /^(?:f|ht)tps?\:\/\//,
 };
@@ -491,28 +495,25 @@ exports.size = {
 
 /** 
 * Create an http(s) server with config provided
-* @param {Object} config
-* @param {Array} config.routes all routes to go through, [ ['/regex or string', (req, res) => {} ] ]
-* @param {Number} config.port port to run server on
-* @param {String} config.address address to run server on
-* @param {String} config.static static directory to load files from
-* @param {String} config.max_response_size maximum response size ( BYTES )
-* @param {Object} config.ssl ssl data to use with server, if not specified server will be HTTP only
-* @param {Object} config.ssl.key location to key file
-* @param {Object} config.ssl.crt location to crt file
-* @param {Object} config.global global arguments to pass to rhtml
-* @param {Function} config.ready function to call on server being ready 
+* @param {Object} [config]
+* @param {Array} [config.routes] - all routes to go through, [ ['/regex or string', (req, res) => {} ] ]
+* @param {Number} [config.port] - port to run server on
+* @param {String} [config.address] - address to run server on
+* @param {String} [config.static] - static directory to load files from
+* @param {Object} [config.ssl ssl] - data to use with server, if not specified server will be HTTP only
+* @param {Object} [config.ssl.key] - location to key file
+* @param {Object} [config.ssl.crt] - location to crt file
+* @param {Object} [config.global] - global arguments to pass to execution
+* @param {Array} [config.execute] - An array of extensions that will be executed like PHP eg [ '.html', '.php' ]
+* @param {Array} [config.index] - An array of filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
+* @param {Function} [config.ready] - function to call on server being ready 
 */
 
 exports.server = class extends events {
-	constructor(options){
+	constructor(options = {}){
 		super();
 		
-		if(typeof options != 'object')throw new TypeError('a none object was specified for the config');
-		
 		this.options = options;
-		
-		this.max_response_size = options.max_response_size || exports.size.mb * 512;
 		
 		this.handler = async (req, res) => {
 			res = new exports.response(req, res, this);
@@ -525,7 +526,9 @@ exports.server = class extends events {
 			this.pick_route(req, res, [...this.routes]);
 		};
 		
-		this.execution = options.execution == false ? false : true;
+		this.execute = options.execute || [];
+		this.index = options.index || [ 'index.jtml', 'index.php' ];
+		
 		this.global = options.global || {};
 		
 		this.global.fs = fs;
