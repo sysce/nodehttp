@@ -527,7 +527,7 @@ exports.server = class extends events {
 		};
 		
 		this.execute = options.execute || [];
-		this.index = options.index || [ 'index.jtml', 'index.php' ];
+		this.index = options.index || [ 'index.jhtml', 'index.php' ];
 		
 		this.global = options.global || {};
 		
