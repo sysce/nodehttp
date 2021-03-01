@@ -298,8 +298,6 @@ exports.response = class extends events {
 				else resolved = pub_file;
 			}
 			
-			console.log(resolved);
-			
 			pub_file = resolved;
 		}
 		
@@ -311,11 +309,7 @@ exports.response = class extends events {
 		this.status(200);
 		this.set('content-type', mime);
 		
-		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file, 'utf8').then(body => {
-			var out = exports.html(pub_file, body, this.req, this, {});
-			
-			if(!this.resp.sent_body)this.send(out);
-		}).catch(err => this.send(util.format(err)));
+		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file, 'utf8').then(body => exports.html(pub_file, body, this.req, this, {}).then(data => !this.resp.sent_body && this.send(data))).catch(err => console.error(err) + this.send(util.format(err)));
 		
 		this.pipe_from(fs.createReadStream(pub_file));
 	}
@@ -347,10 +341,10 @@ exports.response = class extends events {
 		this.set('content-type', 'text/html');
 		this.status(code);
 		
-		this.send(exports.html(loca, text, this.req, this, {
+		exports.html(loca, text, this.req, this, {
 			'$title': title,
 			'$reason': message,
-		}));
+		}).then(data => this.send(data));
 		
 		return this;
 	}
@@ -402,63 +396,66 @@ exports.regex = {
 	proto: /^(?:f|ht)tps?\:\/\//,
 };
 
-exports.html = (fn, body, req, res, state) => {
-	// allow storing of data in here
-	// have NO references
-	// garbage collection is important
-	
+exports.html = (fn, body, req, res, state, output = '') => new Promise(resolve => {
 	// replace and execute both in the same regex to avoid content being insert and ran
 	
-	body = body.replace(exports.regex.exp, (m, type, exp, func_offset) => {
-		exp = '"use strict";' + (type == '=' ? 'echo(' + exp + ')' : exp).replace(exports.regex.state, 'state.$&');
-		
-		var out = '',
-			func,
-			defs = {
-				__dirname: path.dirname(fn),
-				file(file){
-					return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(defs.__dirname, file);
-				},
-				state: state,
-				echo(str){
-					return out += str;
-				},
-				include(file){
-					var text = fs.readFileSync(defs.file(file), 'utf8');
-					
-					if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
-					
-					out += exports.html(file, text, req, res, state);
-					
-					return '';
-				},
-				require(file){
-					return require(defs.file(file))
-				},
-				filemtime(file){
-					file = defs.file(file);
-					
-					if(!fs.existsSync(file))throw new TypeError('cannot find file ' + exports.wrap(file));
-					
-					return fs.statSync(file).mtimeMs;
-				},
-				req: req,
-				res: res,
-			};
+	var portions = [];
+	
+	body.replace(exports.regex.exp, (match, type, code, offset) => portions.push([ code, type, offset, match.length ]));
+	
+	Promise.all(portions.map(([ code, type ]) => new Promise(resolve => {
+		var defs = {
+			output: '',
+			__dirname: path.dirname(fn),
+			file(file){
+				return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(defs.__dirname, file);
+			},
+			state: state,
+			echo(str){
+				return defs.output += str;
+			},
+			include(file){
+				var text = fs.readFileSync(defs.file(file), 'utf8');
+				
+				if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
+				
+				return exports.html(file, text, req, res, state, defs.output).then(data => (defs.output += data, ''));
+			},
+			require(file){
+				return require(defs.file(file))
+			},
+			filemtime(file){
+				file = defs.file(file);
+				
+				if(!fs.existsSync(file))throw new TypeError('cannot find file ' + exports.wrap(file));
+				
+				return fs.statSync(file).mtimeMs;
+			},
+			req: req,
+			res: res,
+			__resolve(){
+				resolve(defs.output);
+			},
+		};
 		
 		try{
-			vm.runInNewContext(exp, Object.assign(defs, res.server.global, state), { filename: fn });
+			vm.runInNewContext('"use strict";(async()=>{\n' + (type == '=' ? 'echo(' + code + ')' : code).replace(exports.regex.state, 'state.$&') + ';\n__resolve()})()', Object.assign(defs, res.server.global, state), { filename: fn });
 		}catch(err){
 			console.error(err);
+			resolve('<pre>' + res.sanitize(util.format(err)) + '</pre>');
 		}
+	}))).then(values => {
+		values.forEach((data, ind) => {
+			body = body.slice(0, portions[ind][2]) + data + body.slice(portions[ind][2] + portions[ind][3]);
+			
+			// [ code, type, offset, length ]
+			
+			for(var sind = ind; sind < portions.length; sind++)portions[sind][2] += data.length - portions[ind][3];
+		});
 		
-		defs = null;
-		
-		return out;
+		resolve(body);
 	});
-	
-	return body;
-};
+});
 
 exports.fake_ip = [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
 
