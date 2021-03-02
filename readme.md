@@ -44,7 +44,7 @@ Notes:
 - `filemtime` does work but it is recommended to use the async function `afilemtimems`
 - All code snippets are asynchronous, you can run async code as long as async functions are awaited for and the snippet is resolved
 
-An example of its usage is:
+Example usage:
 
 ```
 <!-- index.jhtml -->
@@ -71,6 +71,19 @@ echo('No echo is needed, the async function ends with or without');
 ?>
 
 <p>Hello world!</p>
+```
+
+Including "relative.php":
+
+```
+<!--
+- index.html
+- relative.php
+-->
+
+<main>
+	<?=await include('./relative.php')?>
+</main>
 ```
 
 ### API:
