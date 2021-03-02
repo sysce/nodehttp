@@ -40,7 +40,9 @@ Notes:
 - A small amount of PHP functions are implemented such as filemtime, echo, include
 - `file` is a function that will resolve any path from the webserver root
 - `require` is supported
-- All code snippets are asynchronous, you can run async code as long as the response is echo'd and the snippet is resolved
+- `include` is async, you will need `await` before it
+- `filemtime` does work but it is recommended to use the async function `afilemtimems`
+- All code snippets are asynchronous, you can run async code as long as async functions are awaited for and the snippet is resolved
 
 An example of its usage is:
 
