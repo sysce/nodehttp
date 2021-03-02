@@ -309,7 +309,7 @@ exports.response = class extends events {
 		this.status(200);
 		this.set('content-type', mime);
 		
-		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file, 'utf8').then(body => exports.html(pub_file, body, this.req, this, {}).then(data => !this.resp.sent_body && this.send(data))).catch(err => console.error(err) + this.send(util.format(err)));
+		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file, 'utf8').then(body => exports.html(pub_file, body, this.req, this).then(data => !this.resp.sent_body && this.send(data))).catch(err => console.error(err) + this.send(util.format(err)));
 		
 		this.pipe_from(fs.createReadStream(pub_file));
 	}
@@ -342,8 +342,8 @@ exports.response = class extends events {
 		this.status(code);
 		
 		exports.html(loca, text, this.req, this, {
-			'$title': title,
-			'$reason': message,
+			title: title,
+			reason: message,
 		}).then(data => this.send(data));
 		
 		return this;
@@ -391,70 +391,77 @@ exports.response = class extends events {
 };
 
 exports.regex = {
-	exp: /(?<!\\)<\?(=|js|php)([\s\S]*?)(?<!\\)\?>/g,
-	state: /\$\S/g,
 	proto: /^(?:f|ht)tps?\:\/\//,
 };
 
-exports.html = (fn, body, req, res, state, output = '') => new Promise(resolve => {
+exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	// replace and execute both in the same regex to avoid content being insert and ran
+	// args can contain additional globals for context
 	
-	var portions = [];
-	
-	body.replace(exports.regex.exp, (match, type, code, offset) => portions.push([ code, type, offset, match.length ]));
-	
-	Promise.all(portions.map(([ code, type ]) => new Promise(resolve => {
-		var defs = {
-			output: '',
-			__dirname: path.dirname(fn),
-			file(file){
-				return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(defs.__dirname, file);
-			},
-			state: state,
-			echo(str){
-				return defs.output += str;
-			},
-			include(file){
-				var text = fs.readFileSync(defs.file(file), 'utf8');
+	var output = '',
+		dirname = path.dirname(fn),
+		context = ctx || vm.createContext(Object.assign({
+			count(obj){
+				if(typeof obj == 'string' || Array.isArray(arr))return obj.length;
+				else if(typeof obj == 'object')return Object.keys(obj).length;
 				
-				if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
-				
-				return exports.html(file, text, req, res, state, defs.output).then(data => (defs.output += data, ''));
-			},
-			require(file){
-				return require(defs.file(file))
-			},
-			filemtime(file){
-				file = defs.file(file);
-				
-				if(!fs.existsSync(file))throw new TypeError('cannot find file ' + exports.wrap(file));
-				
-				return fs.statSync(file).mtimeMs;
+				throw new TypeError('`obj` must be a string or object');
 			},
 			req: req,
 			res: res,
-			__resolve(){
-				resolve(defs.output);
+			file(file){
+				return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(dirname, file);
 			},
-		};
-		
-		try{
-			vm.runInNewContext('"use strict";(async()=>{\n' + (type == '=' ? 'echo(' + code + ')' : code).replace(exports.regex.state, 'state.$&') + ';\n__resolve()})()', Object.assign(defs, res.server.global, state), { filename: fn });
-		}catch(err){
+			echo(str){
+				return output += str, '';
+			},
+			async include(file){
+				file = context.file(file);
+				
+				if(typeof file != 'string')throw new TypeError('`file` must be a string');
+				if(!(await fs_promises_exists(file)))throw new TypeError('`file` must exist');
+				if(!res.server.execute.includes(path.extname(file)))throw new TypeError('`file` must be one  of the executable extensions: ' + res.server.execute.join(', '));
+				
+				var text = await fs.promises.readFile(file, 'utf8');
+				
+				if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
+				
+				// pass global
+				return exports.html(file, text, req, res, {}, context).then(data => context.echo(data));
+			},
+			require(file){
+				return require(context.file(file))
+			},
+			async afilemtime(file){
+				file = context.file(file);
+				
+				if(!(await fs_promises_exists(file)))throw new TypeError('`file` must exist');
+				
+				return (await fs.promises.stat(file)).mtimeMs;
+			},
+			filemtime(file){
+				file = context.file(file);
+				
+				if(!fs.existsSync(file))throw new TypeError('`file` must exist');
+				
+				return fs.statSync(file).mtimeMs;
+			},
+		}, res.server.global, args));
+	
+	context.global = context;
+	
+	try{
+		// "use strict"; ?
+		vm.runInContext('(async()=>{' + exports.syntax.execute(body).map(data => data.type == 'syntax' ? data.value : 'echo(' + JSON.stringify(data.value) + ')').join(';\n') + '})()', context, { filename: fn }).then(() => {
+			resolve(output);
+		}).catch(err => {
 			console.error(err);
 			resolve('<pre>' + res.sanitize(util.format(err)) + '</pre>');
-		}
-	}))).then(values => {
-		values.forEach((data, ind) => {
-			body = body.slice(0, portions[ind][2]) + data + body.slice(portions[ind][2] + portions[ind][3]);
-			
-			// [ code, type, offset, length ]
-			
-			for(var sind = ind; sind < portions.length; sind++)portions[sind][2] += data.length - portions[ind][3];
 		});
-		
-		resolve(body);
-	});
+	}catch(err){
+		console.error(err);
+		resolve('<pre>' + res.sanitize(util.format(err)) + '</pre>');
+	}
 });
 
 exports.fake_ip = [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
@@ -480,6 +487,67 @@ exports.minify = (data, name, opts) => {
 	return exports.minify_cache[name].data = minifier.minify(data, opts);
 };
 */
+
+exports.syntax = {
+	regex: /(?<!\\)<\?(=|js|php)([\s\S]*?)(?<!\\)\?>/g,
+	variable_php: /\$(\S)/g,
+	execute(string){
+		return this.parse(this.format(string));
+	},
+	format(string){
+		var entries = [];
+		
+		string = string.replace(this.variable_php, '$1');
+		
+		string.replace(this.regex, (match, type, code, offset) => entries.push([ type == '=' ? 'echo(' + code + ')' : code, offset, match.length ]));
+		
+		return [ string, entries ];
+	},
+	parse([ string, entries ]){
+		var strings = [];
+
+		strings.push({ type: 'string', value: string });
+		
+		entries.forEach(([ code, index, length ]) => {
+			var size = 0, index_end = index + length, data;
+			
+			for(var ind in strings){
+				data = strings[ind];
+				
+				if(data.type == 'syntax'){
+					size += data.length;
+					continue;
+				}
+				
+				var real = size,
+					real_end = size + data.value.length;
+				
+				if(real <= index && real_end >= index_end){
+					var relative_index = index - size,
+						relative_index_end = relative_index + length,
+						first_half = data.value.slice(0, relative_index),
+						last_half = data.value.slice(relative_index_end),
+						extracted = data.value.slice(relative_index, relative_index_end);
+					
+					strings = [
+						...strings.splice(0, ind),
+						{ type: 'string', value: first_half },
+						// use provided code variable
+						{ length: length, type: 'syntax', value: code },
+						{ type: 'string', value: last_half },
+						...strings.splice(ind + 1),
+					];
+					
+					break;
+				}
+				
+				size += data.value.length
+			}
+		});
+		
+		return strings;
+	},
+};
 
 exports.size = {
 	b: 1,
