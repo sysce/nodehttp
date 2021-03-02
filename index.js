@@ -407,6 +407,8 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				throw new TypeError('`obj` must be a string or object');
 			},
+			setTimeout: setTimeout,
+			setInterval: setInterval,
 			req: req,
 			res: res,
 			file(file){
