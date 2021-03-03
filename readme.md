@@ -1,5 +1,5 @@
 # NODEHTTP
-## Lightweight express alternative, similar syntax
+## Lightweight express alternative with similar syntax and usage.
 
 <a href="https://www.npmjs.com/package/sys-nodehttp">![Download](https://img.shields.io/npm/dw/sys-nodehttp?style=for-the-badge)</a>
 
@@ -33,21 +33,23 @@ server.post('/api', (req, res) => {
 
 ### Execution:
 
-Unlike express, a way to do calculations or use data serverside is included. The server objects `execution` param will enable this, like php except with JS.
+Unlike express, a way to do calculations or use data serverside is included. The server objects `execution` param contains file extensions that will be capable of executing code, like php except with JS.
 
-Notes:
+## Notes:
 
-- A small amount of PHP functions are implemented such as filemtime, echo, include
+- A small amount of PHP functions are implemented such as filemtime, echo, count, include
 - `file` is a function that will resolve any path from the webserver root
 - `require` is supported
 - `include` is async, you will need `await` before it
 - `filemtime` does work but it is recommended to use the async function `afilemtimems`
 - All code snippets are asynchronous, you can run async code as long as async functions are awaited for and the snippet is resolved
 
-Example usage:
+## Usage:
+
+Example 1:
 
 ```
-<!-- index.jhtml -->
+<!-- index.php -->
 <h1>My web page</h1>
 
 <p>1000 divided by 2:</p>
@@ -58,12 +60,12 @@ echo(1e3 / 2);
 <p>You are currently on <?=req.url.host?></p>
 ```
 
-Delaying the response:
+Example 2, delaying the response:
 
 ```
 <?php
 
-var duration = 1; // seconds
+var duration = 3; // seconds
 
 await new Promise(resolve => setTimeout(() => resolve(), duration * 1000));
 
@@ -73,11 +75,12 @@ echo('No echo is needed, the async function ends with or without');
 <p>Hello world!</p>
 ```
 
-Including "relative.php":
+Example 3, including "relative.php":
 
 ```
 <!--
-- index.html
+folder structure looks like:
+- index.php
 - relative.php
 -->
 
