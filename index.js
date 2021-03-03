@@ -415,6 +415,8 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 			},
 			setTimeout: setTimeout,
 			setInterval: setInterval,
+			clearTimeout: clearTimeout,
+			clearInterval: clearInterval,
 			req: req,
 			res: res,
 			server: res.server,
@@ -596,7 +598,7 @@ exports.server = class extends events {
 		};
 		
 		this.execute = options.execute || ['.php', '.jhtml'];
-		this.index = options.index || [ 'index.jhtml', 'index.php' ];
+		this.index = options.index || [ 'index.html', 'index.jhtml', 'index.php' ];
 		
 		this.global = options.global || {};
 		
