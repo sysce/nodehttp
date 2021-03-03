@@ -407,16 +407,18 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				throw new TypeError('`obj` must be a string or object');
 			},
-			setTimeout: setTimeout,
-			setInterval: setInterval,
-			req: req,
-			res: res,
 			file(file){
 				return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(dirname, file);
 			},
 			echo(str){
 				return output += str, '';
 			},
+			setTimeout: setTimeout,
+			setInterval: setInterval,
+			req: req,
+			res: res,
+			server: res.server,
+			nodehttp: exports,
 			async include(file){
 				file = context.file(file);
 				
