@@ -417,6 +417,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 			setInterval: setInterval,
 			clearTimeout: clearTimeout,
 			clearInterval: clearInterval,
+			process: process,
 			req: req,
 			res: res,
 			server: res.server,
