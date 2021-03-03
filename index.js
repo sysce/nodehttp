@@ -595,7 +595,7 @@ exports.server = class extends events {
 			this.pick_route(req, res, [...this.routes]);
 		};
 		
-		this.execute = options.execute || [];
+		this.execute = options.execute || ['.php', '.jhtml'];
 		this.index = options.index || [ 'index.jhtml', 'index.php' ];
 		
 		this.global = options.global || {};
