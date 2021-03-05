@@ -78,7 +78,7 @@ exports.request = class extends events {
 			this.req.on('data', chunk => post_chunks.push(chunk)).on('end', () => {
 				this.raw_body = Buffer.concat(post_chunks);
 				
-				switch((this.req.headers.get('content-type') + '').replace(/;.*/, '')){
+				switch((this.headers.get('content-type') + '').replace(/;.*/, '')){
 					case'text/plain':
 						
 						this.body = this.raw_body.toString('utf8');
