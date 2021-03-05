@@ -118,9 +118,9 @@ exports.headers = class extends Map {
 	normal_value(value){
 		if(typeof value == 'undefined' || value == null)throw new TypeError('`value` must be a value');
 		
-		return Array.isArray(value) ? value.join(', ') : value.toString();
+		return [...value.toString().trim()].filter(x => x.charCodeAt()).join('');
 	}
-	get(name){
+	get(name){ 
 		return super.get(this.normal_name(name));
 	}
 	has(name){
@@ -129,19 +129,6 @@ exports.headers = class extends Map {
 	delete(name){
 		return super.delete(this.normal_name(name));
 	}
-	/** entries(){
-		var entries = [...super.entries()];
-		
-		for(var ind = 0; ind < entries.length; ind++)yield [ this.normal_name(entries[ind][0]), this.normal_value(entries[ind][1]) ];
-	}
-	* values(){
-		var keys = [...super.keys()];
-		
-		for(var ind = 0; ind < entries.length; ind++)yield this.normal_value(entries[ind]);
-	}
-	[Symbol.iterator](){
-		return this.entries();
-	}*/
 	set(name, value){
 		return super.set(this.normal_name(name), this.normal_value(value));
 	}
