@@ -285,8 +285,8 @@ exports.response = class extends events {
 	* @param {Object|Array|String|Number} Body
 	*/
 	json(object){
-		this.send(JSON.stringify(object));
 		this.contentType('application/json');
+		this.send(JSON.stringify(object));
 		
 		return this;
 	}
