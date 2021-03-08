@@ -286,6 +286,7 @@ exports.response = class extends events {
 	*/
 	json(object){
 		this.send(JSON.stringify(object));
+		this.contentType('application/json');
 		
 		return this;
 	}
