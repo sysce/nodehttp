@@ -9,7 +9,7 @@ var fs = require('fs'),
 	https = require('https'),
 	events = require('events'),
 	crypto = require('crypto'),
-	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK || 0).then(() => resolve(true)).catch(err => resolve(false)));
+	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK).then(() => resolve(true)).catch(err => resolve(false)));
 
 // incase this is confused for util or sys module
 exports.format = util.format;
