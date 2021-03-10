@@ -57,7 +57,7 @@ exports.request = class extends events {
 		
 		this.query = Object.fromEntries([...this.url.searchParams.entries()]);
 		this.method = req.method;
-		this.cookies = req.headers.cookie ? Object.fromEntries((req.headers.cookie + '').split(';').map(split => (split + '').trim().split('='))) : {};
+		this.cookies = Object.fromEntries(exports.response.prototype.deconstruct_cookies(req.headers.cookie).map(cookie => [ cookie.name, cookie.value ]));
 		
 		this.req = req;
 		
@@ -205,30 +205,7 @@ exports.response = class extends events {
 		
 		// handle cookies
 		
-		if(Object.keys(this.cookies).length && !this.headers.get('set-cookie')){
-			this.headers.set('set-cookie', []);
-			
-			for(var name in this.cookies){
-				var data = this.cookies[name],
-					out = [
-						name + '=' + data.value,
-					];
-				
-				if(data.expires){
-					if(typeof data.expires == 'number')data.expires = new Date(data.expires);
-					
-					out.push('expires=' + (data.expires instanceof Date ? data.expires.toGMTString() : data.expires));
-				}
-				
-				if(data.samesite)out.push('samesite=' + data.samesite);
-				if(data.secure)out.push('secure');
-				
-				this.headers.append('set-cookie', out);
-				// this.headers.get('set-cookie').push(out.join('; '));
-			}
-			
-			// this.headers.get('set-cookie') = this.headers.get('set-cookie').join(' ');
-		}
+		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', this.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val))));
 		
 		this.res.writeHead(status, Object.fromEntries([...this.headers.entries()]));
 	}
@@ -396,7 +373,7 @@ exports.response = class extends events {
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
 	*/
-	cgi_status(code, message = exports.http.status_codes[code], title = code){
+	async cgi_status(code, message = exports.http.status_codes[code], title = code){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
@@ -406,7 +383,7 @@ exports.response = class extends events {
 		// exports.sanitize preferred
 		
 		var loca = path.join(this.server.static, 'cgi', 'error.html'),
-			text = fs.existsSync(loca) ? fs.readFileSync(loca, 'utf8') : '<?js res.contentType("text/plain")?><?=$title?> <?=$reason?>';
+			text = await fs_promises_exists(loca) ? await fs.promises.readFile(loca, 'utf8') : '<?js res.contentType("text/plain")?><?=$title?> <?=$reason?>';
 		
 		this.set('content-type', 'text/html');
 		this.status(code);
@@ -514,6 +491,77 @@ exports.response = class extends events {
 		date2.setUTCMilliseconds(0);
 		
 		return date1.getTime() > date2.getTime();
+	}
+	construct_cookies(cookies){
+		return cookies.filter(cookie => cookie && cookie.name && cookie.value).map(cookie => {
+			var out = [];
+			
+			out.push(cookie.name + '=' + (cookie.value || ''));
+			
+			if(cookie.secure)out.push('Secure');
+			
+			if(cookie.http_only)out.push('HttpOnly');
+			
+			if(cookie.samesite)out.push('SameSite=' + cookie.samesite);
+			
+			return out.map(value => value + ';').join(' ');
+		}).join(' ');
+	}
+	deconstruct_cookies(value){
+		var cookies = [];
+		
+		if(value)value.split(';').forEach(data => {
+			if(data[0] == ' ')data = data.substr(1);
+			
+			var [ name, value ] = data.split('='),
+				lower_name = name.toLowerCase();
+			
+			if(['domain', 'expires', 'path', 'httponly', 'samesite', 'secure', 'max-age'].includes(lower_name)){
+				var cookie = cookies[cookies.length - 1];
+				
+				if(cookie)switch(lower_name){
+					case'expires':
+						
+						cookie.expires = new Date(value);
+						
+						break;
+					case'path':
+						
+						cookie.path = value;
+						
+						break;
+					case'httponly':
+						
+						cookie.http_only = true;
+						
+						break;
+					case'samesite':
+						
+						cookie.same_site = value ? value.toLowerCase() : 'none';
+						
+						break;
+					case'secure':
+						
+						cookie.secure = true;
+						
+						break;
+					case'priority':
+						
+						cookie.priority = value.toLowerCase();
+						
+						break;
+					case'domain':
+						
+						cookie.domain = value;
+						
+						break;
+				}
+			}else{
+				cookies.push({ name: name, value: value });
+			}
+		});
+		
+		return cookies;
 	}
 };
 
@@ -770,14 +818,13 @@ exports.server = class extends events {
 				var key = typeof key == 'function' ? key() : key;
 				
 				return key.endsWith('*') ? req.url[targ].startsWith(key.slice(0, -1)) : key == req.url[targ];
-			}),
-			next = () => {
-				routes.splice(end, 1);
-				
-				this.pick_route(req, res, routes);
-			};
+			});
 		
-		if(routes[end])routes[end][2](req, res, next);
+		if(routes[end])routes[end][2](req, res, () => {
+			routes.splice(end, 1);
+			
+			this.pick_route(req, res, routes);
+		});
 		else if(this.static_exists)res.static();
 		else res.cgi_status(404);
 	}
