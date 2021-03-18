@@ -636,7 +636,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	
 	try{
 		// "use strict"; ?
-		new AsyncFunction(Object.keys(context), exports.syntax.parse(exports.syntax.format(body)).map(data => data.type == 'syntax' ? data.value : 'echo(' + JSON.stringify(data.value) + ')').join(';\n') + '\n//# sourceURL=' + fn).apply(context, Object.values(context)).then(() => {
+		new AsyncFunction('arguments', Object.keys(context), exports.syntax.parse(exports.syntax.format(body)).map(data => data.type == 'syntax' ? data.value : 'echo(' + JSON.stringify(data.value) + ')').join(';\n') + '\n//# sourceURL=' + fn).call(context, undefined, ...Object.values(context)).then(() => {
 			resolve(output);
 		}).catch(err => {
 			console.error(err);
