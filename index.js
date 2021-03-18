@@ -131,7 +131,7 @@ exports.headers = class extends Map {
 		return super.delete(this.normal_name(name));
 	}
 	set(name, value){
-		return super.set(this.normal_name(name), this.normal_value(value));
+		return Array.isArray(value) ? value.forEach(data => this.append(name, data)) : super.set(this.normal_name(name), this.normal_value(value));
 	}
 	append(name, value){
 		name = this.normal_name(name);
