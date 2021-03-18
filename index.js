@@ -1,6 +1,5 @@
 'use strict';
 var fs = require('fs'),
-	vm = require('vm'),
 	url = require('url'),
 	path = require('path'),
 	util =  require('util'),
@@ -9,6 +8,7 @@ var fs = require('fs'),
 	https = require('https'),
 	events = require('events'),
 	crypto = require('crypto'),
+	AsyncFunction = (async _=>_).constructor,
 	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK).then(() => resolve(true)).catch(err => resolve(false)));
 
 // incase this is confused for util or sys module
@@ -577,7 +577,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	
 	var output = '',
 		dirname = path.dirname(fn),
-		context = ctx || vm.createContext(Object.assign({
+		context = ctx || Object.assign({
 			count(obj){
 				if(typeof obj == 'string' || Array.isArray(arr))return obj.length;
 				else if(typeof obj == 'object')return Object.keys(obj).length;
@@ -630,17 +630,19 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				return fs.statSync(file).mtimeMs;
 			},
-		}, res.server.global, args));
+		}, res.server.global, args);
 	
 	context.global = context;
 	
 	try{
 		// "use strict"; ?
-		vm.runInContext('(async()=>{' + exports.syntax.execute(body).map(data => data.type == 'syntax' ? data.value : 'echo(' + JSON.stringify(data.value) + ')').join(';\n') + '})()', context, { filename: fn }).then(() => {
+		new AsyncFunction(Object.keys(context), exports.syntax.parse(exports.syntax.format(body)).map(data => data.type == 'syntax' ? data.value : 'echo(' + JSON.stringify(data.value) + ')').join(';\n') + '\n//# sourceURL=' + fn).apply(context, Object.values(context)).then(() => {
 			resolve(output);
 		}).catch(err => {
 			console.error(err);
 			resolve('<pre>' + res.sanitize(util.format(err)) + '</pre>');
+		}).finally(() => {
+			context = null;
 		});
 	}catch(err){
 		console.error(err);
@@ -652,32 +654,9 @@ exports.fake_ip = [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
 
 exports.add_proto = url => !url.match(exports.regex.proto) ? 'https://' + url : url;
 
-/*
-exports.min = {
-	html: { decodeEntities: true, collapseWhitespace: true, removeComments: true, removeTagWhitespace: true, minifyCSS: true, minifyJS: true, quoteCharacter: '\'' },
-	css: { minifyCSS: true },
-};
-
-exports.minify_cache = {};
-
-exports.minify = (data, name, opts) => {
-	var dhash = exports.hash(data);
-	
-	if(!exports.minify_cache[name])exports.minify_cache[name] = {};
-	
-	if(exports.minify_cache[name].hash == dhash)return exports.minify_cache[name].data;
-	
-	exports.minify_cache[name].hash = dhash;
-	return exports.minify_cache[name].data = minifier.minify(data, opts);
-};
-*/
-
 exports.syntax = {
 	regex: /(?<!\\)<\?(=|js|php)([\s\S]*?)(?<!\\)\?>/g,
 	variable_php: /\$(\S)/g,
-	execute(string){
-		return this.parse(this.format(string));
-	},
 	format(string){
 		var entries = [];
 		
@@ -765,16 +744,7 @@ exports.server = class extends events {
 		
 		this.options = options;
 		
-		this.handler = async (req, res) => {
-			res = new exports.response(req, res, this);
-			req = res.req;
-			
-			if(options.handler)return options.handler(req, res);
-			
-			await req.process();
-			
-			this.pick_route(req, res, [...this.routes]);
-		};
+		this.ohandler = options.handler;
 		
 		this.cache = options.cache || 604800;
 		this.execute = options.execute || ['.php', '.jhtml'];
@@ -794,21 +764,31 @@ exports.server = class extends events {
 		this.port = options.port || 8080;
 		this.address = options.address || '127.0.0.1';
 		
-		this.alias = ['0.0.0.0', '127.0.0.1'].includes(this.address) ? 'localhost' : this.address;
-		this.url = new URL('http' + (this.ssl ? 's' : '') + '://' + this.alias + ':' + this.port);
-		
 		this.static = options.static || '';
 		this.static_exists = this.static && fs.existsSync(this.static);
 		
-		this.server = (this.ssl ? https.createServer(this.ssl, this.handler) : http.createServer(this.handler)).listen(this.port, this.address, this.ready.bind(this)).on('error', err => {
-			this.emit('error', err);
-		});
+		this.server = (this.ssl ? https.createServer(this.ssl, this.handler.bind(this)) : http.createServer(this.handler.bind(this))).listen(this.port, this.address, this.ready.bind(this)).on('error', err => this.emit('error', err));
 		
 		this.server.on('upgrade', (req, socket, head) => this.emit('upgrade', req, socket, head));
 		this.server.on('connection', socket => this.emit('connection', socket));
 		this.server.on('close', err => this.emit('close', err));
+	}
+	get alias(){
+		return ['0.0.0.0', '127.0.0.1'].includes(this.address) ? 'localhost' : this.address;
+	}
+	async handler(req, res){
+		res = new exports.response(req, res, this);
+		req = res.req;
 		
-		// checkContinue
+		if(this.ohandler)return this.ohandler(req, res);
+		
+		await req.process();
+		
+		this.pick_route(req, res, [...this.routes]);
+	}
+	get url(){
+		return new URL('http' + (this.ssl ? 's' : '') + '://' + this.alias + ':' + this.port);
+		
 	}
 	pick_route(req, res, routes){
 		var end = routes.findIndex(([ method, key, val, targ = 'pathname' ]) => {
