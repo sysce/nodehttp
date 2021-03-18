@@ -106,9 +106,7 @@ exports.headers = class extends Map {
 	constructor(headers){
 		super();
 		
-		if(typeof headers == 'object')for(var name in headers){
-			this.set(name, headers[name]);
-		}
+		if(typeof headers == 'object')for(var name in headers)this.set(name, headers[name]);
 	}
 	normal_name(name){
 		if(typeof name != 'string')throw new TypeError('`name` must be a string');
@@ -120,8 +118,11 @@ exports.headers = class extends Map {
 		
 		return [...value.toString().trim()].filter(x => x.charCodeAt()).join('');
 	}
+	arr_to_str(mixed){
+		return Array.isArray(mixed) ? mixed.join(', ') : mixed;
+	}
 	get(name){ 
-		return super.get(this.normal_name(name));
+		return this.arr_to_str(super.get(this.normal_name(name)));
 	}
 	has(name){
 		return super.has(this.normal_name(name));
@@ -134,15 +135,19 @@ exports.headers = class extends Map {
 	}
 	append(name, value){
 		name = this.normal_name(name);
+		value = this.normal_value(value);
 		
 		if(this.has(name)){
-			var old_value = this.get(name);
+			var old_value = super.get(name);
 			
-			this.set(name, old_value.split(', ').concat(value).join(', '));
-		}else super.set(name, this.normal_value(value));
+			super.set(name, (Array.isArray(old_value) ? old_value : [ old_value ]).concat(value));
+		}else super.set(name, value);
 	}
 	forEach(callback, thisArg){
 		super.forEach((value, name) => callback.call(thisArg || this, this.normal_value(value), this.normal_name(name), this));
+	}
+	toJSON(){
+		return Object.fromEntries([...super.entries()]);;
 	}
 }
 
@@ -201,13 +206,13 @@ exports.response = class extends events {
 		var status = this.resp.status;
 		
 		// remove trailers on chunked
-		if(this.headers.get('content-encoding') == 'chunked' && this.headers.trailers)delete this.headers.trailers;
+		if(this.headers.get('content-encoding') == 'chunked' && this.headers.has('trailer'))this.headers.delete('trailers');
 		
 		// handle cookies
 		
 		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', this.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val))));
 		
-		this.res.writeHead(status, Object.fromEntries([...this.headers.entries()]));
+		this.res.writeHead(status, this.headers.toJSON());
 	}
 	/**
 	* Pipes the stream to the response
