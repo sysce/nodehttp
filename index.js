@@ -210,7 +210,7 @@ exports.response = class extends events {
 		
 		// handle cookies
 		
-		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', this.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val))));
+		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', this.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val)), false));
 		
 		this.res.writeHead(status, this.headers.toJSON());
 	}
@@ -497,8 +497,8 @@ exports.response = class extends events {
 		
 		return date1.getTime() > date2.getTime();
 	}
-	construct_cookies(cookies){
-		return cookies.filter(cookie => cookie && cookie.name && cookie.value).map(cookie => {
+	construct_cookies(cookies, join = true){
+		var out = cookies.filter(cookie => cookie && cookie.name && cookie.value).map(cookie => {
 			var out = [];
 			
 			out.push(cookie.name + '=' + (cookie.value || ''));
@@ -510,7 +510,9 @@ exports.response = class extends events {
 			if(cookie.samesite)out.push('SameSite=' + cookie.samesite);
 			
 			return out.map(value => value + ';').join(' ');
-		}).join(' ');
+		});
+		
+		return join ? out.join(' ') : out;
 	}
 	deconstruct_cookies(value){
 		var cookies = [];
