@@ -296,7 +296,7 @@ exports.response = class extends events {
 		if(!type)type = types.find(type => accept_encoding.includes(type));
 		
 		// anything below 1mb not worth compressing
-		if(!type || !accept_encoding || !accept_encoding.includes(type) || body.byteLength < 1024)return this.send(body);
+		if(!type || !accept_encoding || !accept_encoding.includes(type))return this.send(body);
 		
 		var compressed = type == 'br' ? zlib.createBrotliCompress() : type == 'gzip' ? zlib.createGzip() : zlib.createDeflate();
 		
@@ -367,7 +367,7 @@ exports.response = class extends events {
 		
 		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
-		if(stats.size < (exports.size.mb / 10))fs.promises.readFile(pub_file).then(data => {
+		if(stats.size < (exports.size.gb / 10))fs.promises.readFile(pub_file).then(data => {
 			this.set('content-length', stats.size);
 			this.set('ETag', this.etag(data));
 			
@@ -786,7 +786,7 @@ exports.server = class extends events {
 				
 				this.pick_route(req, res, [...this.routes], this.config.static && await fs_promises_exists(this.config.static));
 			},
-			compress: [ '.wasm' ],
+			compress: [ '.wasm', '.unityweb', '.css', '.js', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.json' ],
 			port: 8080,
 			address: '127.0.0.1',
 			static: '',
