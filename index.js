@@ -81,17 +81,17 @@ exports.request = class extends events {
 				switch((this.headers.get('content-type') + '').replace(/;.*/, '')){
 					case'text/plain':
 						
-						this.body = this.raw_body.toString('utf8');
+						this.body = this.raw_body.toString();
 						
 						break;
 					case'application/json':
 						
-						this.body = exports.valid_json(this.raw_body.toString('utf8')) || {};
+						this.body = exports.valid_json(this.raw_body.toString()) || {};
 						
 						break;
 					case'application/x-www-form-urlencoded':
 						
-						this.body = Object.fromEntries([...new URLSearchParams(this.raw_body.toString('utf8')).entries()]);
+						this.body = Object.fromEntries([...new URLSearchParams(this.raw_body.toString()).entries()]);
 						
 						break;
 				}
@@ -343,7 +343,7 @@ exports.response = class extends events {
 		this.set('date', this.date(this.req.date));
 		
 		// executable file
-		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file, 'utf8').then(body => exports.html(pub_file, body, this.req, this).then(data => {
+		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file).then(body => exports.html(pub_file, body.toString(), this.req, this).then(data => {
 			if(!this.resp.sent_body){
 				this.set('content-length', Buffer.byteLength(data));
 				this.set('etag', this.etag(data));
