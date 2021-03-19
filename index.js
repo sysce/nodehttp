@@ -387,13 +387,12 @@ exports.response = class extends events {
 		
 		// exports.sanitize preferred
 		
-		var loca = path.join(this.server.static, 'cgi', 'error.html'),
-			text = await fs_promises_exists(loca) ? await fs.promises.readFile(loca, 'utf8') : '<?js res.contentType("text/plain")?><?=$title?> <?=$reason?>';
+		var text = await fs_promises_exists(this.server.error) ? await fs.promises.readFile(this.server.error, 'utf8') : '<?js res.contentType("text/plain")?><?=$title?> <?=$reason?>';
 		
 		this.set('content-type', 'text/html');
 		this.status(code);
 		
-		exports.html(loca, text, this.req, this, {
+		exports.html(this.server.cgi_error, text, this.req, this, {
 			title: title,
 			reason: message,
 		}).then(data => this.send(data));
@@ -773,6 +772,9 @@ exports.server = class extends events {
 		
 		this.static = options.static || '';
 		this.static_exists = this.static && fs.existsSync(this.static);
+		
+		this.cgi = path.join(this.static, 'cgi');
+		this.cgi_error = path.join(this.cgi, 'error.php');
 		
 		this.server = (this.ssl ? https.createServer(this.ssl, this.handler.bind(this)) : http.createServer(this.handler.bind(this))).listen(this.port, this.address, this.ready.bind(this)).on('error', err => this.emit('error', err));
 		

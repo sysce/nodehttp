@@ -53,6 +53,8 @@ Unlike express, a way to do calculations or use data serverside is included. The
 - ${t}include${t} is async, you will need ${t}await${t} before it
 - ${t}filemtime${t} does work but it is recommended to use the async function ${t}afilemtimems${t}
 - All code snippets are asynchronous, you can run async code as long as async functions are awaited for and the snippet is resolved
+- a folder in your static folder called ${t}cgi${t} is needed to store stuff eg error.php
+- error.php has the variables ${t}title${t} and ${t}message${t}
 
 ## Usage:
 
