@@ -584,7 +584,8 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	
 	res.resp.execute = true;
 	
-	var output = '',
+	var fd = path.dirname(fn),
+		output = '',
 		dirname = path.dirname(fn),
 		context = ctx || Object.assign({
 			count(obj){
@@ -594,7 +595,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				throw new TypeError('`obj` must be a string or object');
 			},
 			file(file){
-				return path.isAbsolute(file) ? path.join(res.server.static, file) : path.join(dirname, file);
+				return path.resolve(fd, file);
 			},
 			echo(str){
 				return output += str, '';
@@ -775,8 +776,8 @@ exports.server = class extends events {
 		
 		this.static = options.static || '';
 		
-		this.cgi = path.join(this.static, 'cgi');
-		this.cgi_error = path.join(this.cgi, 'error.php');
+		this.cgi = options.cgi || path.join(this.static, 'cgi');
+		this.cgi_error = options.cgi_error || path.join(this.cgi, 'error.php');
 		
 		this.server = (this.ssl ? https.createServer(this.ssl, this.handler.bind(this)) : http.createServer(this.handler.bind(this))).listen(this.port, this.address, this.ready.bind(this)).on('error', err => this.emit('error', err));
 		
