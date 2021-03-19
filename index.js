@@ -343,7 +343,7 @@ exports.response = class extends events {
 		this.set('date', this.date(this.req.date));
 		
 		// executable file
-		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file).then(body => exports.html(pub_file, body.toString(), this.req, this).then(data => {
+		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
 			if(!this.resp.sent_body){
 				this.set('content-length', Buffer.byteLength(data));
 				this.set('etag', this.etag(data));
@@ -385,9 +385,8 @@ exports.response = class extends events {
 		if(message instanceof Error)title = message.code, message = '<pre>' + this.sanitize(exports.format(message)) + '</pre>';
 		else message = message;
 		
-		// exports.sanitize preferred
-		
-		var text = await fs_promises_exists(this.server.error) ? await fs.promises.readFile(this.server.error, 'utf8') : '<?js res.contentType("text/plain")?><?=$title?> <?=$reason?>';
+		// exports.sanitize?
+		var text = await fs_promises_exists(this.server.cgi_error) ? await fs.promises.readFile(this.server.cgi_error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>';
 		
 		this.set('content-type', 'text/html');
 		this.status(code);
@@ -395,6 +394,8 @@ exports.response = class extends events {
 		exports.html(this.server.cgi_error, text, this.req, this, {
 			title: title,
 			reason: message,
+			message: message,
+			error: title + ' ' + message,
 		}).then(data => this.send(data));
 		
 		return this;
@@ -578,6 +579,8 @@ exports.regex = {
 exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	// replace and execute both in the same regex to avoid content being insert and ran
 	// args can contain additional globals for context
+	
+	body = body.toString();
 	
 	res.resp.execute = true;
 	
@@ -771,7 +774,6 @@ exports.server = class extends events {
 		this.address = options.address || '127.0.0.1';
 		
 		this.static = options.static || '';
-		this.static_exists = this.static && fs.existsSync(this.static);
 		
 		this.cgi = path.join(this.static, 'cgi');
 		this.cgi_error = path.join(this.cgi, 'error.php');
@@ -793,13 +795,13 @@ exports.server = class extends events {
 		
 		await req.process();
 		
-		this.pick_route(req, res, [...this.routes]);
+		this.pick_route(req, res, [...this.routes], this.static && await fs_promises_exists(this.static));
 	}
 	get url(){
 		return new URL('http' + (this.ssl ? 's' : '') + '://' + this.alias + ':' + this.port);
 		
 	}
-	pick_route(req, res, routes){
+	pick_route(req, res, routes, static_exists){
 		var end = routes.findIndex(([ method, key, val, targ = 'pathname' ]) => {
 				if(method != '*' && method != req.method)return;
 				if(key instanceof RegExp)return key.test(req.url[targ]);
@@ -812,9 +814,9 @@ exports.server = class extends events {
 		if(routes[end])routes[end][2](req, res, () => {
 			routes.splice(end, 1);
 			
-			this.pick_route(req, res, routes);
+			this.pick_route(req, res, routes, static_exists);
 		});
-		else if(this.static_exists)res.static();
+		else if(static_exists)res.static();
 		else res.cgi_status(404);
 	}
 	/**
