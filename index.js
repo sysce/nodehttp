@@ -5,6 +5,7 @@ var fs = require('fs'),
 	util =  require('util'),
 	zlib = require('zlib'),
 	http = require('http'),
+	http2 = require('http2'),
 	https = require('https'),
 	events = require('events'),
 	crypto = require('crypto'),
@@ -21,7 +22,7 @@ exports.wrap = str => JSON.stringify([ str ]).slice(1, -1);
 exports.valid_json = json => {  try{ return JSON.parse(json) }catch(err){ return null } };
 
 // mime types, status codes, 
-exports.http = {days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],body:['PUT','PATCH','DELETE','POST'],status_codes:{"100":"Continue","101":"Switching Protocols","102":"Processing","103":"Early Hints","200":"OK","201":"Created","202":"Accepted","203":"Non-Authoritative Information","204":"No Content","205":"Reset Content","206":"Partial Content","207":"Multi-Status","208":"Already Reported","226":"IM Used","300":"Multiple Choices","301":"Moved Permanently","302":"Found","303":"See Other","304":"Not Modified","305":"Use Proxy","307":"Temporary Redirect","308":"Permanent Redirect","400":"Bad Request","401":"Unauthorized","402":"Payment Required","403":"Forbidden","404":"Not Found","405":"Method Not Allowed","406":"Not Acceptable","407":"Proxy Authentication Required","408":"Request Timeout","409":"Conflict","410":"Gone","411":"Length Required","412":"Precondition Failed","413":"Payload Too Large","414":"URI Too Long","415":"Unsupported Media Type","416":"Range Not Satisfiable","417":"Expectation Failed","418":"I'm a Teapot","421":"Misdirected Request","422":"Unprocessable Entity","423":"Locked","424":"Failed Dependency","425":"Too Early","426":"Upgrade Required","428":"Precondition Required","429":"Too Many Requests","431":"Request Header Fields Too Large","451":"Unavailable For Legal Reasons","500":"Internal Server Error","501":"Not Implemented","502":"Bad Gateway","503":"Service Unavailable","504":"Gateway Timeout","505":"HTTP Version Not Supported","506":"Variant Also Negotiates","507":"Insufficient Storage","508":"Loop Detected","509":"Bandwidth Limit Exceeded","510":"Not Extended","511":"Network Authentication Required"},mimes:{html:"text/html",htm:"text/html",shtml:"text/html",css:"text/css",xml:"text/xml",gif:"image/gif",jpeg:"image/jpeg",jpg:"image/jpeg",js:"application/javascript",atom:"application/atom+xml",rss:"application/rss+xml",mml:"text/mathml",txt:"text/plain",jad:"text/vnd.sun.j2me.app-descriptor",wml:"text/vnd.wap.wml",htc:"text/x-component",png:"image/png",tif:"image/tiff",tiff:"image/tiff",wbmp:"image/vnd.wap.wbmp",ico:"image/x-icon",jng:"image/x-jng",bmp:"image/x-ms-bmp",svg:"image/svg+xml",svgz:"image/svg+xml",webp:"image/webp",woff:"application/font-woff",jar:"application/java-archive",war:"application/java-archive",ear:"application/java-archive",json:"application/json",hqx:"application/mac-binhex40",doc:"application/msword",pdf:"application/pdf",ps:"application/postscript",eps:"application/postscript",ai:"application/postscript",rtf:"application/rtf",m3u8:"application/vnd.apple.mpegurl",xls:"application/vnd.ms-excel",eot:"application/vnd.ms-fontobject",ppt:"application/vnd.ms-powerpoint",wmlc:"application/vnd.wap.wmlc",kml:"application/vnd.google-earth.kml+xml",kmz:"application/vnd.google-earth.kmz","7z":"application/x-7z-compressed",cco:"application/x-cocoa",jardiff:"application/x-java-archive-diff",jnlp:"application/x-java-jnlp-file",run:"application/x-makeself",pl:"application/x-perl",pm:"application/x-perl",prc:"application/x-pilot",pdb:"application/x-pilot",rar:"application/x-rar-compressed",rpm:"application/x-redhat-package-manager",sea:"application/x-sea",swf:"application/x-shockwave-flash",sit:"application/x-stuffit",tcl:"application/x-tcl",tk:"application/x-tcl",der:"application/x-x509-ca-cert",pem:"application/x-x509-ca-cert",crt:"application/x-x509-ca-cert",xpi:"application/x-xpinstall",xhtml:"application/xhtml+xml",xspf:"application/xspf+xml",zip:"application/zip",bin:"application/octet-stream",exe:"application/octet-stream",dll:"application/octet-stream",deb:"application/octet-stream",dmg:"application/octet-stream",iso:"application/octet-stream",img:"application/octet-stream",msi:"application/octet-stream",msp:"application/octet-stream",msm:"application/octet-stream",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",mid:"audio/midi",midi:"audio/midi",kar:"audio/midi",mp3:"audio/mpeg",ogg:"audio/ogg",m4a:"audio/x-m4a",ra:"audio/x-realaudio","3gpp":"video/3gpp","3gp":"video/3gpp",ts:"video/mp2t",mp4:"video/mp4",mpeg:"video/mpeg",mpg:"video/mpeg",mov:"video/quicktime",webm:"video/webm",flv:"video/x-flv",m4v:"video/x-m4v",mng:"video/x-mng",asx:"video/x-ms-asf",asf:"video/x-ms-asf",wmv:"video/x-ms-wmv",avi:"video/x-msvideo",wasm:"application/wasm",ttf:"font/ttf"}};
+exports.http = {days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],body:['PUT','PATCH','DELETE','POST'],mimes:{html:"text/html",htm:"text/html",shtml:"text/html",css:"text/css",xml:"text/xml",gif:"image/gif",jpeg:"image/jpeg",jpg:"image/jpeg",js:"application/javascript",atom:"application/atom+xml",rss:"application/rss+xml",mml:"text/mathml",txt:"text/plain",jad:"text/vnd.sun.j2me.app-descriptor",wml:"text/vnd.wap.wml",htc:"text/x-component",png:"image/png",tif:"image/tiff",tiff:"image/tiff",wbmp:"image/vnd.wap.wbmp",ico:"image/x-icon",jng:"image/x-jng",bmp:"image/x-ms-bmp",svg:"image/svg+xml",svgz:"image/svg+xml",webp:"image/webp",woff:"application/font-woff",jar:"application/java-archive",war:"application/java-archive",ear:"application/java-archive",json:"application/json",hqx:"application/mac-binhex40",doc:"application/msword",pdf:"application/pdf",ps:"application/postscript",eps:"application/postscript",ai:"application/postscript",rtf:"application/rtf",m3u8:"application/vnd.apple.mpegurl",xls:"application/vnd.ms-excel",eot:"application/vnd.ms-fontobject",ppt:"application/vnd.ms-powerpoint",wmlc:"application/vnd.wap.wmlc",kml:"application/vnd.google-earth.kml+xml",kmz:"application/vnd.google-earth.kmz","7z":"application/x-7z-compressed",cco:"application/x-cocoa",jardiff:"application/x-java-archive-diff",jnlp:"application/x-java-jnlp-file",run:"application/x-makeself",pl:"application/x-perl",pm:"application/x-perl",prc:"application/x-pilot",pdb:"application/x-pilot",rar:"application/x-rar-compressed",rpm:"application/x-redhat-package-manager",sea:"application/x-sea",swf:"application/x-shockwave-flash",sit:"application/x-stuffit",tcl:"application/x-tcl",tk:"application/x-tcl",der:"application/x-x509-ca-cert",pem:"application/x-x509-ca-cert",crt:"application/x-x509-ca-cert",xpi:"application/x-xpinstall",xhtml:"application/xhtml+xml",xspf:"application/xspf+xml",zip:"application/zip",bin:"application/octet-stream",exe:"application/octet-stream",dll:"application/octet-stream",deb:"application/octet-stream",dmg:"application/octet-stream",iso:"application/octet-stream",img:"application/octet-stream",msi:"application/octet-stream",msp:"application/octet-stream",msm:"application/octet-stream",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",mid:"audio/midi",midi:"audio/midi",kar:"audio/midi",mp3:"audio/mpeg",ogg:"audio/ogg",m4a:"audio/x-m4a",ra:"audio/x-realaudio","3gpp":"video/3gpp","3gp":"video/3gpp",ts:"video/mp2t",mp4:"video/mp4",mpeg:"video/mpeg",mpg:"video/mpeg",mov:"video/quicktime",webm:"video/webm",flv:"video/x-flv",m4v:"video/x-m4v",mng:"video/x-mng",asx:"video/x-ms-asf",asf:"video/x-ms-asf",wmv:"video/x-ms-wmv",avi:"video/x-msvideo",wasm:"application/wasm",ttf:"font/ttf"}};
 
 exports.hash = str => { var hash = 5381, i = str.length; while(i)hash = (hash * 33) ^ str.charCodeAt(--i); return hash >>> 0; };
 
@@ -48,7 +49,7 @@ exports.request = class extends events {
 		
 		this.server = server;
 		
-		this.url = new exports.URL(req.url.replace(exports.path_regex, '/'), 'http' + (server.ssl ? 's' : '') + '://' + req.headers.host);
+		this.url = new exports.URL(req.url.replace(exports.path_regex, '/'), 'http' + (this.server.config.ssl ? 's' : '') + '://' + req.headers.host);
 		
 		this.date = new Date();
 		
@@ -71,8 +72,6 @@ exports.request = class extends events {
 	*/
 	process(){
 		return new Promise((resolve, reject) => {
-			if(!exports.http.body.includes(this.method))return resolve();
-			
 			var post_chunks = [];
 			
 			this.req.on('data', chunk => post_chunks.push(chunk)).on('end', () => {
@@ -313,7 +312,7 @@ exports.response = class extends events {
 	* Sends a static file with a mime type, good for sending video files or anything streamed
 	* @param {String} [File] By default the file is resolved by servers static path
 	*/
-	async static(pub_file = path.join(this.server.static, this.req.url.pathname)){
+	async static(pub_file = path.join(this.server.config.static, this.req.url.pathname)){
 		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
 		
 		if(!(await fs_promises_exists(pub_file)))return this.cgi_status(404);
@@ -323,8 +322,8 @@ exports.response = class extends events {
 			
 			var resolved;
 			
-			for(var ind in this.server.index){
-				if(await fs_promises_exists(resolved = path.join(pub_file, this.server.index[ind])))break;
+			for(var ind in this.server.config.index){
+				if(await fs_promises_exists(resolved = path.join(pub_file, this.server.config.index[ind])))break;
 				else resolved = pub_file;
 			}
 			
@@ -334,7 +333,7 @@ exports.response = class extends events {
 		if(!(await fs_promises_exists(pub_file)) || (await fs.promises.stat(pub_file)).isDirectory())return this.cgi_status(404);
 		
 		var ext = (path.extname(pub_file) + ''),
-			mime = this.server.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
+			mime = this.server.config.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
 			stats = await fs.promises.stat(pub_file);
 		
 		this.status(200);
@@ -343,7 +342,7 @@ exports.response = class extends events {
 		this.set('date', this.date(this.req.date));
 		
 		// executable file
-		if(this.server.execute.includes(ext))return fs.promises.readFile(pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
+		if(this.server.config.execute.includes(ext))return fs.promises.readFile(pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
 			if(!this.resp.sent_body){
 				this.set('content-length', Buffer.byteLength(data));
 				this.set('etag', this.etag(data));
@@ -355,7 +354,7 @@ exports.response = class extends events {
 		
 		this.set('last-modified', this.date(stats.mtimeMs));
 		this.set('content-length', stats.size);
-		// this.set('cache-control', 'max-age=' + this.server.cache);
+		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
 		fs.promises.readFile(pub_file).then(data => {
 			this.set('ETag', this.etag(data));
@@ -378,7 +377,7 @@ exports.response = class extends events {
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
 	*/
-	async cgi_status(code, message = exports.http.status_codes[code], title = code){
+	async cgi_status(code, message = http.STATUS_CODES[code], title = code){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
@@ -386,12 +385,12 @@ exports.response = class extends events {
 		else message = message;
 		
 		// exports.sanitize?
-		var text = await fs_promises_exists(this.server.cgi_error) ? await fs.promises.readFile(this.server.cgi_error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>';
+		var text = await fs_promises_exists(this.server.config.cgi_error) ? await fs.promises.readFile(this.server.config.cgi_error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>';
 		
 		this.set('content-type', 'text/html');
 		this.status(code);
 		
-		exports.html(this.server.cgi_error, text, this.req, this, {
+		exports.html(this.server.config.cgi_error, text, this.req, this, {
 			title: title,
 			reason: message,
 			message: message,
@@ -614,7 +613,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				if(typeof file != 'string')throw new TypeError('`file` must be a string');
 				if(!(await fs_promises_exists(file)))throw new TypeError('`file` must exist');
-				if(!res.server.execute.includes(path.extname(file)))throw new TypeError('`file` must be one  of the executable extensions: ' + res.server.execute.join(', '));
+				if(!res.server.config.execute.includes(path.extname(file)))throw new TypeError('`file` must be one  of the executable extensions: ' + res.server.config.execute.join(', '));
 				
 				var text = await fs.promises.readFile(file, 'utf8');
 				
@@ -640,7 +639,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				return fs.statSync(file).mtimeMs;
 			},
-		}, res.server.global, args);
+		}, res.server.config.global, args);
 	
 	context.global = context;
 	
@@ -734,73 +733,72 @@ exports.size = {
 /** 
 * Create an http(s) server with config provided
 * @param {Object} [config]
-* @param {Array} [config.routes] - all routes to go through, [ ['/regex or string', (req, res) => {} ] ]
-* @param {Number} [config.port] - port to run server on
-* @param {String} [config.address] - address to run server on
-* @param {String} [config.static] - static directory to load files from
-* @param {Object} [config.ssl ssl] - data to use with server, if not specified server will be HTTP only
-* @param {Object} [config.ssl.key] - location to key file
-* @param {Object} [config.ssl.crt] - location to crt file
-* @param {Object} [config.global] - global arguments to pass to execution
-* @param {Object} [config.cache] - Cache duration in seconds, default is 604800
-* @param {Array} [config.execute] - An array of extensions that will be executed like PHP eg [ '.html', '.php' ]
-* @param {Array} [config.index] - An array of filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
-* @param {Function} [config.ready] - function to call on server being ready 
+* @param {Number} [config.port] - Listening port
+* @param {String} [config.address] - Listening address
+* @param {String} [config.static] - Static files
+* @param {Object} [config.ssl ssl] - SSL data
+* @param {String} [config.ssl.key] - SSL key data
+* @param {String} [config.ssl.crt] - SSL certificate data
+* @param {String} [config.type] - Server type, can be http, https, http2, defaults to if SSL is provided = https, otherwise http
+* @param {Object} [config.cache] - Cache duration in seconds for static files, by default off
+* @param {Object} [config.global] - Variables to add to execution context
+* @param {Array} [config.execute] - Extensions that will be executed like PHP eg [ '.html', '.php' ]
+* @param {Array} [config.index] - Filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
+* @param {Array} [config.compress] - Extensions that will automatically be served with compression
 */
 
 exports.server = class extends events {
-	constructor(options = {}){
+	constructor(config = {}){
 		super();
 		
-		this.options = options;
+		this.config = Object.assign({
+			cache: false,
+			execute: ['.php', '.jhtml'],
+			index: [ 'index.html', 'index.jhtml', 'index.php' ],
+			global: {
+				fs: fs,
+				path: path,
+				atob: exports.atob,
+				btoa: exports.btoa,
+				nodehttp: exports,
+			},
+			handler: async (req, res) => {
+				if(exports.http.body.includes(req.method))await req.process();
+				
+				this.pick_route(req, res, [...this.routes], this.config.static && await fs_promises_exists(this.config.static));
+			},
+			compress: [ 'wasm' ],
+			port: 8080,
+			address: '127.0.0.1',
+			static: '',
+			type: config.ssl ? 'https' : 'http',
+			log_ready: false,
+		}, config);
 		
-		this.ohandler = options.handler;
+		this.routes = [];
 		
-		this.cache = options.cache || 604800;
-		this.execute = options.execute || ['.php', '.jhtml'];
-		this.index = options.index || [ 'index.html', 'index.jhtml', 'index.php' ];
+		this.config.cgi = path.join(this.config.static, 'cgi');
+		this.config.cgi_error = path.join(this.config.static, 'cgi', 'error.php');
 		
-		this.global = options.global || {};
-		
-		this.global.fs = fs;
-		this.global.path = path;
-		this.global.atob = exports.atob;
-		this.global.btoa = exports.btoa;
-		this.global.nodehttp = exports;
-		
-		this.routes = options.endpoints || options.routes || [];
-		this.ssl = options.ssl;
-		
-		this.port = options.port || 8080;
-		this.address = options.address || '127.0.0.1';
-		
-		this.static = options.static || '';
-		
-		this.cgi = options.cgi || path.join(this.static, 'cgi');
-		this.cgi_error = options.cgi_error || path.join(this.cgi, 'error.php');
-		
-		this.server = (this.ssl ? https.createServer(this.ssl, this.handler.bind(this)) : http.createServer(this.handler.bind(this))).listen(this.port, this.address, this.ready.bind(this)).on('error', err => this.emit('error', err));
+		this.server = ({ http: http, https: https, http2: http2 })[this.config.type].createServer(this.config.ssl, (req, res) => {
+			var re = new exports.response(req, res, this);
+			
+			this.config.handler(re.req, re);
+		}).listen(this.config.port, this.config.address, () => {
+			this.emit('ready');
+			
+			if(this.config.log_ready)console.log(`[${process.pid}] server listening on ${this.url}`);
+		}).on('error', err => this.emit('error', err));
 		
 		this.server.on('upgrade', (req, socket, head) => this.emit('upgrade', req, socket, head));
 		this.server.on('connection', socket => this.emit('connection', socket));
 		this.server.on('close', err => this.emit('close', err));
 	}
 	get alias(){
-		return ['0.0.0.0', '127.0.0.1'].includes(this.address) ? 'localhost' : this.address;
-	}
-	async handler(req, res){
-		res = new exports.response(req, res, this);
-		req = res.req;
-		
-		if(this.ohandler)return this.ohandler(req, res);
-		
-		await req.process();
-		
-		this.pick_route(req, res, [...this.routes], this.static && await fs_promises_exists(this.static));
+		return ['0.0.0.0', '127.0.0.1'].includes(this.config.address) ? 'localhost' : this.config.address;
 	}
 	get url(){
-		return new URL('http' + (this.ssl ? 's' : '') + '://' + this.alias + ':' + this.port);
-		
+		return new URL('http' + (this.config.ssl ? 's' : '') + '://' + this.alias + ':' + this.config.port);
 	}
 	pick_route(req, res, routes, static_exists){
 		var end = routes.findIndex(([ method, key, val, targ = 'pathname' ]) => {
@@ -885,11 +883,5 @@ exports.server = class extends events {
 			handler = typeof a1 == 'function' ? a1 : a2;
 		
 		this.routes.push([ '*', path, handler ]);
-	}
-	ready(){
-		this.emit('ready');
-		
-		if(this.options.ready)this.options.ready.call(this);
-		else console.log(`[${process.pid}] server listening on ${this.url}`);
 	}
 }
