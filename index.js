@@ -9,6 +9,7 @@ var fs = require('fs'),
 	https = require('https'),
 	events = require('events'),
 	crypto = require('crypto'),
+	stream = require('stream'),
 	AsyncFunction = (async _=>_).constructor,
 	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK).then(() => resolve(true)).catch(err => resolve(false)));
 
@@ -220,7 +221,14 @@ exports.response = class extends events {
 	pipe_from(stream){
 		this.finalize();
 		
-		stream.pipe(this.res);
+		return stream.pipe(this.res);
+	}
+	/**
+	* Pipes response into stream
+	* @param {Stream} Stream
+	*/
+	pipe(stream){
+		return this.res.pipe(stream);
 	}
 	/**
 	* Writes data to the response
@@ -273,11 +281,11 @@ exports.response = class extends events {
 	}
 	/**
 	* Pipes data from zlib to the response
-	* @param {String} Encoding ( can be gzip, br, and deflate )
-	* @param {String|Buffer} [Body]
+	* @param {String|Buffer|Stream} [Body]
+	 @param {String} Encoding ( can be gzip, br, and deflate ), defaults to auto
 	*/
-	compress(type, body){
-		if(!['br', 'gzip', 'deflate'].includes(type))throw new TypeError('unknown compression `' + exports.wrap(type));
+	compress(body, type){
+		var types = ['br', 'gzip', 'deflate']
 		
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		
@@ -285,14 +293,17 @@ exports.response = class extends events {
 		
 		var accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
 		
+		if(!type)type = types.find(type => accept_encoding.includes(type));
+		
 		// anything below 1mb not worth compressing
-		if(!accept_encoding || !accept_encoding.includes(type) || body.byteLength < 1024)return this.send(body);
+		if(!type || !accept_encoding || !accept_encoding.includes(type) || body.byteLength < 1024)return this.send(body);
 		
-		var stream = type == 'br' ? zlib.createBrotliCompress() : type == 'gzip' ? zlib.createGunzip() : zlib.createDeflate();
+		var compressed = type == 'br' ? zlib.createBrotliCompress() : type == 'gzip' ? zlib.createGzip() : zlib.createDeflate();
 		
-		stream.end(body);
+		if(body instanceof stream)body.pipe(compressed);
+		else compressed.end(body);
 		
-		return this.set('content-encoding', type).pipe_from(stream);
+		return this.set('content-encoding', type).pipe_from(compressed);
 	}
 	/**
 	* Generates an etag
@@ -353,10 +364,11 @@ exports.response = class extends events {
 		if(this.req.headers.has('if-modified-since') && !this.compare_date(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
 		
 		this.set('last-modified', this.date(stats.mtimeMs));
-		this.set('content-length', stats.size);
+		
 		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
 		if(stats.size < (exports.size.mb / 10))fs.promises.readFile(pub_file).then(data => {
+			this.set('content-length', stats.size);
 			this.set('ETag', this.etag(data));
 			
 			if(this.req.headers.has('if-none-match') && this.req.headers.get('if-none-match') == this.headers.get('etag'))return this.status(304).end();
@@ -365,20 +377,10 @@ exports.response = class extends events {
 		}).catch(err => console.error(err) + this.cgi_status(400, err));
 		else{
 			var fst = fs.createReadStream(pub_file),
-				nst,
 				accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
 			
-			console.log('piping ' + pub_file, this.server.config.compress, ext, accept_encoding);
-			
-			if(this.server.config.compress.includes(ext) && accept_encoding && accept_encoding.includes('gzip')){
-				(nst = zlib.createGunzip()).pipe(fst);
-				
-				this.set('content-encoding', 'gzip');
-				
-				console.log('gzipping');
-			}
-			
-			this.pipe_from(nst || fst);
+			if(this.server.config.compress.includes(ext) && accept_encoding && accept_encoding.includes('gzip'))this.compress(fst);
+			else this.pipe_from(fst);
 		}
 	}
 	/**
