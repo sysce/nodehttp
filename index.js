@@ -283,7 +283,7 @@ exports.response = class extends events {
 		
 		if(typeof body == 'string')body = Buffer.from(body);
 		
-		var accept_encoding = this.headers.has('accept-encoding') && this.headers.get('accept-encoding').split(' ');
+		var accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
 		
 		// anything below 1mb not worth compressing
 		if(!accept_encoding || !accept_encoding.includes(type) || body.byteLength < 1024)return this.send(body);
@@ -356,13 +356,30 @@ exports.response = class extends events {
 		this.set('content-length', stats.size);
 		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
-		fs.promises.readFile(pub_file).then(data => {
+		if(stats.size < (exports.size.mb / 10))fs.promises.readFile(pub_file).then(data => {
 			this.set('ETag', this.etag(data));
 			
 			if(this.req.headers.has('if-none-match') && this.req.headers.get('if-none-match') == this.headers.get('etag'))return this.status(304).end();
 			
 			this.send(data);
 		}).catch(err => console.error(err) + this.cgi_status(400, err));
+		else{
+			var fst = fs.createReadStream(pub_file),
+				nst,
+				accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
+			
+			console.log('piping ' + pub_file, this.server.config.compress, ext, accept_encoding);
+			
+			if(this.server.config.compress.includes(ext) && accept_encoding && accept_encoding.includes('gzip')){
+				(nst = zlib.createGunzip()).pipe(fst);
+				
+				this.set('content-encoding', 'gzip');
+				
+				console.log('gzipping');
+			}
+			
+			this.pipe_from(nst || fst);
+		}
 	}
 	/**
 	* Sanitizes a string
@@ -767,7 +784,7 @@ exports.server = class extends events {
 				
 				this.pick_route(req, res, [...this.routes], this.config.static && await fs_promises_exists(this.config.static));
 			},
-			compress: [ 'wasm' ],
+			compress: [ '.wasm' ],
 			port: 8080,
 			address: '127.0.0.1',
 			static: '',
