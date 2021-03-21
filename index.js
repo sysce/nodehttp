@@ -328,6 +328,9 @@ exports.response = class extends events {
 		
 		if(!(await fs_promises_exists(pub_file)))return this.cgi_status(404);
 		
+		// show directory listing?
+		var listing = false;
+		
 		if((await fs.promises.stat(pub_file)).isDirectory()){
 			if(!this.req.url.pathname.endsWith('/'))return this.redirect(301, this.req.url.pathname + '/');
 			
@@ -341,11 +344,14 @@ exports.response = class extends events {
 			pub_file = resolved;
 		}
 		
-		if(!(await fs_promises_exists(pub_file)) || (await fs.promises.stat(pub_file)).isDirectory())return this.cgi_status(404);
+		if(!(await fs_promises_exists(pub_file)) || (await fs.promises.stat(pub_file)).isDirectory()){
+			if((await fs.promises.stat(pub_file)).isDirectory() && this.server.config.listing.includes(path.relative(this.server.config.static, pub_file)))listing = this.server.config.cgi_listing;
+			else return this.cgi_status(404);
+		}
 		
-		var ext = (path.extname(pub_file) + ''),
+		var ext = (path.extname(listing || pub_file) + ''),
 			mime = this.server.config.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
-			stats = await fs.promises.stat(pub_file);
+			stats = await fs.promises.stat(listing || pub_file);
 		
 		this.status(200);
 		this.headers.set('content-type', mime);
@@ -353,7 +359,7 @@ exports.response = class extends events {
 		this.set('date', this.date(this.req.date));
 		
 		// executable file
-		if(this.server.config.execute.includes(ext))return fs.promises.readFile(pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
+		if(listing || this.server.config.execute.includes(ext))return fs.promises.readFile(listing || pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
 			if(!this.resp.sent_body){
 				this.set('content-length', Buffer.byteLength(data));
 				this.set('etag', this.etag(data));
@@ -367,7 +373,7 @@ exports.response = class extends events {
 		
 		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
-		if(stats.size < (exports.size.gb / 10))fs.promises.readFile(pub_file).then(data => {
+		if(stats.size < (this.server.size.gb / 10))fs.promises.readFile(pub_file).then(data => {
 			this.set('content-length', stats.size);
 			this.set('ETag', this.etag(data));
 			
@@ -606,6 +612,8 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 		output = '',
 		dirname = path.dirname(fn),
 		context = ctx || Object.assign({
+			__dirname: dirname,
+			__filename: fn,
 			count(obj){
 				if(typeof obj == 'string' || Array.isArray(arr))return obj.length;
 				else if(typeof obj == 'object')return Object.keys(obj).length;
@@ -688,8 +696,6 @@ exports.syntax = {
 	format(string){
 		var entries = [];
 		
-		string = string.replace(this.variable_php, '$1');
-		
 		string.replace(this.regex, (match, type, code, offset) => entries.push([ type == '=' ? 'echo(' + code + ')' : code, offset, match.length ]));
 		
 		return [ string, entries ];
@@ -700,6 +706,9 @@ exports.syntax = {
 		strings.push({ type: 'string', value: string });
 		
 		entries.forEach(([ code, index, length ]) => {
+			// transform code
+			code = code.replace(this.variable_php, '$1');
+			
 			var size = 0, index_end = index + length, data;
 			
 			for(var ind in strings){
@@ -740,15 +749,6 @@ exports.syntax = {
 	},
 };
 
-exports.size = {
-	b: 1,
-	kb: 1e3,
-	mb: 1e6,
-	gb: 1e9,
-	tb: 1e12,
-	pb: 1e+15,
-}
-
 /** 
 * Create an http(s) server with config provided
 * @param {Object} [config]
@@ -764,6 +764,7 @@ exports.size = {
 * @param {Array} [config.execute] - Extensions that will be executed like PHP eg [ '.html', '.php' ]
 * @param {Array} [config.index] - Filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
 * @param {Array} [config.compress] - Extensions that will automatically be served with compression
+* @param {Array} [config.listing] - Path to folders (relative to static specified) to show the default directory listing ( eg folder in static named "media" will be listing: [ "media" ] )
 */
 
 exports.server = class extends events {
@@ -787,6 +788,7 @@ exports.server = class extends events {
 				this.pick_route(req, res, [...this.routes], this.config.static && await fs_promises_exists(this.config.static));
 			},
 			compress: [ '.wasm', '.unityweb', '.css', '.js', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.json' ],
+			listing: [],
 			port: 8080,
 			address: '127.0.0.1',
 			static: '',
@@ -798,6 +800,7 @@ exports.server = class extends events {
 		
 		this.config.cgi = path.join(this.config.static, 'cgi');
 		this.config.cgi_error = path.join(this.config.static, 'cgi', 'error.php');
+		this.config.cgi_listing = path.join(__dirname, 'listing.php');
 		
 		this.server = ({ http: http, https: https, http2: http2 })[this.config.type].createServer(this.config.ssl, (req, res) => {
 			var re = new exports.response(req, res, this);
@@ -812,6 +815,23 @@ exports.server = class extends events {
 		this.server.on('upgrade', (req, socket, head) => this.emit('upgrade', req, socket, head));
 		this.server.on('connection', socket => this.emit('connection', socket));
 		this.server.on('close', err => this.emit('close', err));
+	}
+	size = {
+		b: 1,
+		kb: 1e3,
+		mb: 1e6,
+		gb: 1e9,
+		tb: 1e12,
+		pb: 1e+15,
+		string(bytes){
+			if(bytes < this.kb)return bytes + ' B';
+			else if(bytes < this.mb)return (bytes / this.kb).toFixed(1) + ' KB';
+			else if(bytes < this.gb)return (bytes / this.mb).toFixed(1) + ' MB';
+			else if(bytes < this.tb)return (bytes / this.gb).toFixed(1) + ' GB';
+			else if(bytes < this.pb)return (bytes / this.pb).toFixed(1) + ' TB';
+			else if(bytes > this.tb)return (bytes / this.tb).toFixed(1) + ' PB';
+			else return bytes + ' B';
+		}
 	}
 	get alias(){
 		return ['0.0.0.0', '127.0.0.1'].includes(this.config.address) ? 'localhost' : this.config.address;
