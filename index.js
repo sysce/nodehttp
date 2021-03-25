@@ -13,8 +13,7 @@ var fs = require('fs'),
 	AsyncFunction = (async _=>_).constructor,
 	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK).then(() => resolve(true)).catch(err => resolve(false)));
 
-// incase this is confused for util or sys module
-exports.format = util.format;
+exports.find_arg = (args, type, fallback) => args.find(arg => typeof arg == type) || fallback;
 
 exports.btoa = str => Buffer.from(str || '', 'utf8').toString('base64');
 exports.atob = str => Buffer.from(str || '', 'base64').toString('utf8');
@@ -324,9 +323,9 @@ exports.response = class extends events {
 	* @param {String} [File] By default the file is resolved by servers static path
 	*/
 	async static(pub_file = path.join(this.server.config.static, this.req.url.pathname)){
-		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_status(403);
+		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_error(403);
 		
-		if(!(await fs_promises_exists(pub_file)))return this.cgi_status(404);
+		if(!(await fs_promises_exists(pub_file)))return this.cgi_error(404);
 		
 		// show directory listing?
 		var listing = false;
@@ -346,7 +345,7 @@ exports.response = class extends events {
 		
 		if(!(await fs_promises_exists(pub_file)) || (await fs.promises.stat(pub_file)).isDirectory()){
 			if((await fs.promises.stat(pub_file)).isDirectory() && this.server.config.listing.includes(path.relative(this.server.config.static, pub_file)))listing = this.server.config.cgi_listing;
-			else return this.cgi_status(404);
+			else return this.cgi_error(404);
 		}
 		
 		var ext = (path.extname(listing || pub_file) + ''),
@@ -380,7 +379,7 @@ exports.response = class extends events {
 			if(this.req.headers.has('if-none-match') && this.req.headers.get('if-none-match') == this.headers.get('etag'))return this.status(304).end();
 			
 			this.send(data);
-		}).catch(err => console.error(err) + this.cgi_status(400, err));
+		}).catch(err => console.error(err) + this.cgi_error(400, err));
 		else{
 			var fst = fs.createReadStream(pub_file),
 				accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
@@ -402,7 +401,7 @@ exports.response = class extends events {
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
 	*/
-	async cgi_status(code, message = http.STATUS_CODES[code], title = code){
+	async cgi_error(code, message = http.STATUS_CODES[code], title = code){
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
@@ -423,6 +422,10 @@ exports.response = class extends events {
 		}).then(data => this.send(data));
 		
 		return this;
+	}
+	cgi_status(...args){
+		console.warn('cgi_status is deprecated, change to cgi_error');
+		return this.cgi_error(...args);
 	}
 	/**
 	* Sets the status code and location header
@@ -448,15 +451,6 @@ exports.response = class extends events {
 	}
 	/**
 	* Sets the content-type header
-	* @param {String} Content type
-	*/
-	content_type(value){
-		this.set('content-type', value);
-		
-		return this;
-	}
-	/**
-	* Sets the content-type header, alias of content_type
 	* @param {String} Content type
 	*/
 	contentType(value){
@@ -672,7 +666,23 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	
 	try{
 		// "use strict"; ?
-		new AsyncFunction('arguments', Object.keys(context), exports.syntax.parse(exports.syntax.format(body)).map(data => data.type == 'syntax' ? data.value : 'echo(' + JSON.stringify(data.value) + ')').join(';\n') + '\n//# sourceURL=' + fn).call(context, undefined, ...Object.values(context)).then(() => {
+		
+		// type == '=' ? 'echo(' + code + ')' : code, 
+		
+		new AsyncFunction('arguments', Object.keys(context), exports.syntax.parse(exports.syntax.format(body)).map(data => {
+			if(data.type == 'syntax'){
+				var code = data.value.slice(0, -2);
+				
+				if(code.startsWith('<?='))code = 'echo(' + code.slice(3) + ')';
+				else if(code.startsWith('<?php'))code = code.slice(5);
+				else if(code.startsWith('<?js'))code = code.slice(4);
+				else if(code.startsWith('<?'))code = code.slice(2);
+				
+				return code;
+			}
+			
+			return 'echo(' + JSON.stringify(data.value) + ')';
+		}).join(';\n') + '\n//# sourceURL=' + fn).call(context, undefined, ...Object.values(context)).then(() => {
 			resolve(output);
 		}).catch(err => {
 			console.error(err);
@@ -691,12 +701,13 @@ exports.fake_ip = [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
 exports.add_proto = url => !url.match(exports.regex.proto) ? 'https://' + url : url;
 
 exports.syntax = {
-	regex: /(?<!\\)<\?(=|js|php)([\s\S]*?)(?<!\\)\?>/g,
+	regex: /(?<!\\)<\?(?:=|js|php)(?:[\s\S]*?)(?<!\\)\?>/g,
 	variable_php: /\$(\S)/g,
 	format(string){
 		var entries = [];
 		
-		string.replace(this.regex, (match, type, code, offset) => entries.push([ type == '=' ? 'echo(' + code + ')' : code, offset, match.length ]));
+		// string = string.replace(this.variable_php, '$1');
+		string.replace(this.regex, (match, offset) => entries.push([ offset, match.length ]));
 		
 		return [ string, entries ];
 	},
@@ -705,10 +716,7 @@ exports.syntax = {
 
 		strings.push({ type: 'string', value: string });
 		
-		entries.forEach(([ code, index, length ]) => {
-			// transform code
-			code = code.replace(this.variable_php, '$1');
-			
+		entries.forEach(([ index, length ]) => {
 			var size = 0, index_end = index + length, data;
 			
 			for(var ind in strings){
@@ -733,7 +741,7 @@ exports.syntax = {
 						...strings.splice(0, ind),
 						{ type: 'string', value: first_half },
 						// use provided code variable
-						{ length: length, type: 'syntax', value: code },
+						{ length: length, type: 'syntax', value: extracted },
 						{ type: 'string', value: last_half },
 						...strings.splice(ind + 1),
 					];
@@ -831,7 +839,7 @@ exports.server = class extends events {
 			else if(bytes < this.pb)return (bytes / this.pb).toFixed(1) + ' TB';
 			else if(bytes > this.tb)return (bytes / this.tb).toFixed(1) + ' PB';
 			else return bytes + ' B';
-		}
+		},
 	}
 	get alias(){
 		return ['0.0.0.0', '127.0.0.1'].includes(this.config.address) ? 'localhost' : this.config.address;
@@ -840,87 +848,37 @@ exports.server = class extends events {
 		return new URL('http' + (this.config.ssl ? 's' : '') + '://' + this.alias + ':' + this.config.port);
 	}
 	pick_route(req, res, routes, static_exists){
-		var end = routes.findIndex(([ method, key, val, targ = 'pathname' ]) => {
-				if(method != '*' && method != req.method)return;
-				if(key instanceof RegExp)return key.test(req.url[targ]);
-				
-				var key = typeof key == 'function' ? key() : key;
-				
-				return key.endsWith('*') ? req.url[targ].startsWith(key.slice(0, -1)) : key == req.url[targ];
-			});
+		var end = routes.findIndex(([ path, callback, method ]) => {
+			if(method != '*' && method != req.method)return;
+			else if(path == '*')return true;
+			else if(path instanceof RegExp)return path.test(req.url.pathname);
+			else return path == req.url.pathname;
+		});
 		
-		if(routes[end])routes[end][2](req, res, () => {
+		if(routes[end])routes[end][1](req, res, () => {
 			routes.splice(end, 1);
 			
 			this.pick_route(req, res, routes, static_exists);
 		});
 		else if(static_exists)res.static();
-		else res.cgi_status(404);
+		else res.cgi_error(404);
 	}
-	/**
-	* add a GET route
-	* @param {string} Path
-	* @param {function} Handler
-	*/
-	get(a1, a2){
-		var path = typeof a1 == 'string' ? a1 : '*',
-			handler = typeof a1 == 'function' ? a1 : a2;
+};
+
+[ [ 'use', '*' ] ].concat(exports.http.methods).forEach(data => {
+	var name, method;
+	
+	if(Array.isArray(data))name = data[0], method = data[1];
+	else name = data;
+	
+	exports.server.prototype[name] = function(...args){
+		var path = exports.find_arg(args, 'string', '*'),
+			callback = exports.find_arg(args, 'function');
 		
-		this.routes.push([ 'GET', path, handler ]);
-	}
-	/**
-	* add a POST route
-	* @param {string} Path
-	* @param {function} Handler
-	*/
-	post(a1, a2){
-		var path = typeof a1 == 'string' ? a1 : '*',
-			handler = typeof a1 == 'function' ? a1 : a2;
+		if(path != '*' && path.includes('*'))path = new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'));
 		
-		this.routes.push([ 'POST', path, handler ]);
-	}
-	/**
-	* add a PUT route
-	* @param {string} Path
-	* @param {function} Handler
-	*/
-	put(a1, a2){
-		var path = typeof a1 == 'string' ? a1 : '*',
-			handler = typeof a1 == 'function' ? a1 : a2;
+		if(typeof callback != 'function')throw new TypeError('specify a callback (function)');
 		
-		this.routes.push([ 'PUT', path, handler ]);
+		this.routes.push([ path, callback, method ]);
 	}
-	/**
-	* add a PATCH route
-	* @param {string} Path
-	* @param {function} Handler
-	*/
-	patch(a1, a2){
-		var path = typeof a1 == 'string' ? a1 : '*',
-			handler = typeof a1 == 'function' ? a1 : a2;
-		
-		this.routes.push([ 'PATCH', path, handler ]);
-	}
-	/**
-	* add a DELETE route
-	* @param {string} Path
-	* @param {function} Handler
-	*/
-	delete(a1, a2){
-		var path = typeof a1 == 'string' ? a1 : '*',
-			handler = typeof a1 == 'function' ? a1 : a2;
-		
-		this.routes.push([ 'DELETE', path, handler ]);
-	}
-	/**
-	* add a route for all
-	* @param {string} Path
-	* @param {function} Handler
-	*/
-	use(a1, a2){
-		var path = typeof a1 == 'string' ? a1 : '*',
-			handler = typeof a1 == 'function' ? a1 : a2;
-		
-		this.routes.push([ '*', path, handler ]);
-	}
-}
+});
