@@ -405,7 +405,7 @@ exports.response = class extends events {
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
-		if(message instanceof Error)title = message.code, message = '<pre>' + this.sanitize(exports.format(message)) + '</pre>';
+		if(message instanceof Error)title = message.code, message = '<pre>' + this.sanitize(util.format(message)) + '</pre>';
 		else message = message;
 		
 		// exports.sanitize?
