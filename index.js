@@ -58,7 +58,7 @@ exports.request = class extends events {
 		
 		this.query = Object.fromEntries([...this.url.searchParams.entries()]);
 		this.method = req.method;
-		this.cookies = Object.fromEntries(exports.response.prototype.deconstruct_cookies(req.headers.cookie).map(cookie => [ cookie.name, cookie.value ]));
+		this.cookies = Object.fromEntries(exports.deconstruct_cookies(req.headers.cookie).map(cookie => [ cookie.name, cookie.value ]));
 		
 		this.req = req;
 		
@@ -209,7 +209,7 @@ exports.response = class extends events {
 		
 		// handle cookies
 		
-		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', this.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val)), false));
+		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', exports.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val)), false));
 		
 		this.res.writeHead(status, this.headers.toJSON());
 	}
@@ -355,7 +355,7 @@ exports.response = class extends events {
 		this.status(200);
 		this.headers.set('content-type', mime);
 		
-		this.set('date', this.date(this.req.date));
+		this.set('date', exports.date(this.req.date));
 		
 		// executable file
 		if(listing || this.server.config.execute.includes(ext))return fs.promises.readFile(listing || pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
@@ -366,13 +366,13 @@ exports.response = class extends events {
 			}
 		})).catch(err => console.error(err) + this.send(util.format(err)));
 		
-		if(this.req.headers.has('if-modified-since') && !this.compare_date(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
+		if(this.req.headers.has('if-modified-since') && !exports.compare_date(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
 		
-		this.set('last-modified', this.date(stats.mtimeMs));
+		this.set('last-modified', exports.date(stats.mtimeMs));
 		
 		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
-		if(stats.size < (this.server.size.gb / 10))fs.promises.readFile(pub_file).then(data => {
+		if(stats.size < (exports.size.gb / 10))fs.promises.readFile(pub_file).then(data => {
 			this.set('content-length', stats.size);
 			this.set('ETag', this.etag(data));
 			
@@ -458,136 +458,162 @@ exports.response = class extends events {
 		
 		return this;
 	}
-	/**
-	* Makes a parsable GMT string for the client 
-	* @param {Date|Number} Date
-	* @returns {String}
-	*/
-	date(date){
-		if(typeof date == 'number')date = new Date(date);
+};
+
+/**
+* Makes a parsable GMT string for the client 
+* @param {Date|Number} Date
+* @returns {String}
+*/
+
+exports.date = date => {
+	if(typeof date == 'number')date = new Date(date);
+	
+	var day_name = exports.http.days[date.getUTCDay()],
+		month = exports.http.months[date.getMonth()],
+		timestamp = [ date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds() ].map(num => (num + '').padStart(2, 0)).join(':'),
+		day = (date.getUTCDate() + '').padStart(2, 0),
+		year = date.getUTCFullYear();
+	
+	// <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
+	return day_name + ', ' + day + ' ' + month + ' ' + year + ' ' + timestamp + ' GMT';
+};
+
+/**
+* Parses a client date eg if-modifed-since
+* @param {String} Header
+* @returns {Date}
+*/
+
+exports.parse_date = date => {
+	if(typeof date == 'number')return new Date(date);
+	if(date instanceof Date)return date;
+	
+	var [ day_name, day, month, year, timestamp, timezone ] = date.split(' '),
+		[ hours, minutes, seconds ] = (timestamp || '').split(':').map(num => parseInt(num)),
+		out = new Date();
+	
+	out.setUTCMonth(exports.http.months.indexOf(month));
+	out.setUTCDate(day);
+	out.setUTCFullYear(year);
+	out.setUTCHours(hours);
+	out.setUTCMinutes(minutes);
+	out.setUTCSeconds(seconds);
+	
+	out.setUTCMilliseconds(0);
+	
+	return out;
+};
+
+/**
+* Compares if date 1 is greater than date 2
+* @param {String|Date} Date 1
+* @param {String|Date} Date 2
+* @returns {Date}
+*/
+
+exports.compare_date = (date1, date2) => {
+	var date1 = exports.parse_date(date1),
+		date2 = exports.parse_date(date2);
+	
+	
+	date1.setUTCMilliseconds(0);
+	date2.setUTCMilliseconds(0);
+	
+	return date1.getTime() > date2.getTime();
+};
+
+exports.construct_cookies = (cookies, join = true) => {
+	var out = cookies.filter(cookie => cookie && cookie.name && cookie.value).map(cookie => {
+		var out = [];
 		
-		var day_name = exports.http.days[date.getUTCDay()],
-			month = exports.http.months[date.getMonth()],
-			timestamp = [ date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds() ].map(num => (num + '').padStart(2, 0)).join(':'),
-			day = (date.getUTCDate() + '').padStart(2, 0),
-			year = date.getUTCFullYear();
+		out.push(cookie.name + '=' + (cookie.value || ''));
 		
-		// <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
-		return day_name + ', ' + day + ' ' + month + ' ' + year + ' ' + timestamp + ' GMT';
-	}
-	/**
-	* Parses a client date eg if-modifed-since
-	* @param {String} Header
-	* @returns {Date}
-	*/
-	parse_date(date){
-		if(typeof date == 'number')return new Date(date);
-		if(date instanceof Date)return date;
+		if(cookie.secure)out.push('Secure');
 		
-		var [ day_name, day, month, year, timestamp, timezone ] = date.split(' '),
-			[ hours, minutes, seconds ] = (timestamp || '').split(':').map(num => parseInt(num)),
-			out = new Date();
+		if(cookie.http_only)out.push('HttpOnly');
 		
-		out.setUTCMonth(exports.http.months.indexOf(month));
-		out.setUTCDate(day);
-		out.setUTCFullYear(year);
-		out.setUTCHours(hours);
-		out.setUTCMinutes(minutes);
-		out.setUTCSeconds(seconds);
+		if(cookie.samesite)out.push('SameSite=' + cookie.samesite);
 		
-		out.setUTCMilliseconds(0);
+		return out.map(value => value + ';').join(' ');
+	});
+	
+	return join ? out.join(' ') : out;
+};
+
+exports.deconstruct_cookies = value => {
+	var cookies = [];
+	
+	if(value)value.split(';').forEach(data => {
+		if(data[0] == ' ')data = data.substr(1);
 		
-		return out;
-	}
-	/**
-	* Compares if date 1 is greater than date 2
-	* @param {String|Date} Date 1
-	* @param {String|Date} Date 2
-	* @returns {Date}
-	*/
-	compare_date(date1, date2){
-		var date1 = this.parse_date(date1),
-			date2 = this.parse_date(date2);
+		var [ name, value ] = data.split('='),
+			lower_name = name.toLowerCase();
 		
-		
-		date1.setUTCMilliseconds(0);
-		date2.setUTCMilliseconds(0);
-		
-		return date1.getTime() > date2.getTime();
-	}
-	construct_cookies(cookies, join = true){
-		var out = cookies.filter(cookie => cookie && cookie.name && cookie.value).map(cookie => {
-			var out = [];
+		if(['domain', 'expires', 'path', 'httponly', 'samesite', 'secure', 'max-age'].includes(lower_name)){
+			var cookie = cookies[cookies.length - 1];
 			
-			out.push(cookie.name + '=' + (cookie.value || ''));
-			
-			if(cookie.secure)out.push('Secure');
-			
-			if(cookie.http_only)out.push('HttpOnly');
-			
-			if(cookie.samesite)out.push('SameSite=' + cookie.samesite);
-			
-			return out.map(value => value + ';').join(' ');
-		});
-		
-		return join ? out.join(' ') : out;
-	}
-	deconstruct_cookies(value){
-		var cookies = [];
-		
-		if(value)value.split(';').forEach(data => {
-			if(data[0] == ' ')data = data.substr(1);
-			
-			var [ name, value ] = data.split('='),
-				lower_name = name.toLowerCase();
-			
-			if(['domain', 'expires', 'path', 'httponly', 'samesite', 'secure', 'max-age'].includes(lower_name)){
-				var cookie = cookies[cookies.length - 1];
-				
-				if(cookie)switch(lower_name){
-					case'expires':
-						
-						cookie.expires = new Date(value);
-						
-						break;
-					case'path':
-						
-						cookie.path = value;
-						
-						break;
-					case'httponly':
-						
-						cookie.http_only = true;
-						
-						break;
-					case'samesite':
-						
-						cookie.same_site = value ? value.toLowerCase() : 'none';
-						
-						break;
-					case'secure':
-						
-						cookie.secure = true;
-						
-						break;
-					case'priority':
-						
-						cookie.priority = value.toLowerCase();
-						
-						break;
-					case'domain':
-						
-						cookie.domain = value;
-						
-						break;
-				}
-			}else{
-				cookies.push({ name: name, value: value });
+			if(cookie)switch(lower_name){
+				case'expires':
+					
+					cookie.expires = new Date(value);
+					
+					break;
+				case'path':
+					
+					cookie.path = value;
+					
+					break;
+				case'httponly':
+					
+					cookie.http_only = true;
+					
+					break;
+				case'samesite':
+					
+					cookie.same_site = value ? value.toLowerCase() : 'none';
+					
+					break;
+				case'secure':
+					
+					cookie.secure = true;
+					
+					break;
+				case'priority':
+					
+					cookie.priority = value.toLowerCase();
+					
+					break;
+				case'domain':
+					
+					cookie.domain = value;
+					
+					break;
 			}
-		});
-		
-		return cookies;
-	}
+		}else{
+			cookies.push({ name: name, value: value });
+		}
+	});
+	
+	return cookies;
+};
+
+exports.size = {
+	b: 1,
+	kb: 1e3,
+	mb: 1e6,
+	gb: 1e9,
+	tb: 1e12,
+	pb: 1e+15,
+	string(bytes){
+		if(bytes < this.kb)return bytes + ' B';
+		else if(bytes < this.mb)return (bytes / this.kb).toFixed(1) + ' KB';
+		else if(bytes < this.gb)return (bytes / this.mb).toFixed(1) + ' MB';
+		else if(bytes < this.tb)return (bytes / this.gb).toFixed(1) + ' GB';
+		else if(bytes < this.pb)return (bytes / this.pb).toFixed(1) + ' TB';
+		else if(bytes > this.tb)return (bytes / this.tb).toFixed(1) + ' PB';
+		else return bytes + ' B';
+	},
 };
 
 exports.regex = {
@@ -823,23 +849,6 @@ exports.server = class extends events {
 		this.server.on('upgrade', (req, socket, head) => this.emit('upgrade', req, socket, head));
 		this.server.on('connection', socket => this.emit('connection', socket));
 		this.server.on('close', err => this.emit('close', err));
-	}
-	size = {
-		b: 1,
-		kb: 1e3,
-		mb: 1e6,
-		gb: 1e9,
-		tb: 1e12,
-		pb: 1e+15,
-		string(bytes){
-			if(bytes < this.kb)return bytes + ' B';
-			else if(bytes < this.mb)return (bytes / this.kb).toFixed(1) + ' KB';
-			else if(bytes < this.gb)return (bytes / this.mb).toFixed(1) + ' MB';
-			else if(bytes < this.tb)return (bytes / this.gb).toFixed(1) + ' GB';
-			else if(bytes < this.pb)return (bytes / this.pb).toFixed(1) + ' TB';
-			else if(bytes > this.tb)return (bytes / this.tb).toFixed(1) + ' PB';
-			else return bytes + ' B';
-		},
 	}
 	get alias(){
 		return ['0.0.0.0', '127.0.0.1'].includes(this.config.address) ? 'localhost' : this.config.address;

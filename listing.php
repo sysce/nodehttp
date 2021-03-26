@@ -26,7 +26,7 @@ start(<?=JSON.stringify('/' + path.relative(server.config.static, file('./')))?>
 <?js
 var data = await fs.promises.readdir(__filename).then(files => Promise.all(files.map(file => new Promise((res, rej) => fs.promises.stat(file = path.resolve(__filename, file)).then(stat => res([ file, stat ]))))));
 
-echo(JSON.stringify(data.sort((d1, d2) => d1[1].isDirectory() ? -1 : d2[1].isDirectory() ? -1 : 1).map(([ file, stat ]) => [ path.relative(__filename, file), encodeURIComponent(path.relative(__filename, file)), stat.isDirectory(), stat.size, server.size.string(stat.size), ~~stat.mtimeMs, new Date(stat.mtimeMs).toLocaleString() ])));
+echo(JSON.stringify(data.sort((d1, d2) => d1[1].isDirectory() ? -1 : d2[1].isDirectory() ? -1 : 1).map(([ file, stat ]) => [ path.relative(__filename, file), encodeURIComponent(path.relative(__filename, file)), stat.isDirectory(), stat.size, nodehttp.size.string(stat.size), ~~stat.mtimeMs, new Date(stat.mtimeMs).toLocaleString() ])));
 ?>.forEach(a=>add_row(...a));
 		</script>
 	</body>
