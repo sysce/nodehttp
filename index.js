@@ -32,7 +32,53 @@ exports.URL = class extends URL {
 	get fullpath(){
 		return this.url.href.substr(this.url.origin.length);
 	}
-}
+};
+
+exports.client_response = class {
+	constructor(res){
+		this.headers = new exports.headers(res.headers);
+		
+		var chunks = [];
+		
+		this.buf = new Promise(resolve => res.on('data', chunk => chunks.push(chunk)).on('end', () => resolve(Buffer.concat(chunks))));
+	}
+	async buffer(){
+		return await this.buf;
+	}
+	async text(){
+		return (await this.buf).toString();
+	}
+	async json(){
+		return JSON.parse((await this.buf).toString());
+	}
+};
+
+/**
+* Send a client request, similar to fetch
+* @param {URL|string} URL
+* @param {Object} [Options]
+* @returns {Promise} exports.client_response
+*/
+
+exports.fetch = (url, opts = {}) => {
+	var body = opts.body;
+	
+	opts = Object.assign({}, opts);
+	
+	url = new URL(url);
+	
+	opts.path = url.href.substr(url.origin);
+	opts.hostname = url.hostname;
+	opts.protocol = url.protocol;
+	
+	if(opts.headers instanceof exports.headers)opts.headers = opts.headers.toJSON();
+	
+	if(body)delete opts.body;
+	
+	if(body && (!opts.method || !exports.http.body.includes(opts.method.toLowerCase())))throw new TypeError('method ' + (opts.method || 'get').toUpperCase() + ' cannot have body');
+	
+	return new Promise((resolve, reject) => (url.protocol == 'https:' ? https : http).request(opts, res => resolve(new exports.client_response(res))).on('error', reject).on('error', reject).end(body));
+};
 
 /**
 * Base request class
@@ -43,6 +89,7 @@ exports.URL = class extends URL {
 * @property {Object|String|Array|Number} body - Contains POST body if applicable (once process is called)
 * @property {URL} url - URL object from request (contains host)
 */
+
 exports.request = class extends events {
 	constructor(req, res, server){
 		super();
@@ -389,14 +436,6 @@ exports.response = class extends events {
 		}
 	}
 	/**
-	* Sanitizes a string
-	* @param {String}
-	* @returns {String}
-	*/
-	sanitize(string){
-		return (string + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('')
-	}
-	/**
 	* Sends a page from the `error.html` file in the `cgi` folder in the static folder, provides the variables $title and $reason in syntax
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
@@ -405,10 +444,9 @@ exports.response = class extends events {
 		if(this.resp.sent_body)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
-		if(message instanceof Error)title = message.code, message = '<pre>' + this.sanitize(util.format(message)) + '</pre>';
+		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(util.format(message)) + '</pre>';
 		else message = message;
 		
-		// exports.sanitize?
 		var text = await fs_promises_exists(this.server.config.cgi_error) ? await fs.promises.readFile(this.server.config.cgi_error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>';
 		
 		this.set('content-type', 'text/html');
@@ -458,6 +496,16 @@ exports.response = class extends events {
 		
 		return this;
 	}
+};
+
+/**
+* Sanitizes a string
+* @param {String}
+* @returns {String}
+*/
+
+exports.sanitize = string => {
+	return (string + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('')
 };
 
 /**
@@ -712,13 +760,13 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 			resolve(output);
 		}).catch(err => {
 			console.error(err);
-			resolve('<pre>' + res.sanitize(util.format(err)) + '</pre>');
+			resolve('<pre>' + exports.sanitize(util.format(err)) + '</pre>');
 		}).finally(() => {
 			context = null;
 		});
 	}catch(err){
 		console.error(err);
-		resolve('<pre>' + res.sanitize(util.format(err)) + '</pre>');
+		resolve('<pre>' + exports.sanitize(util.format(err)) + '</pre>');
 	}
 });
 
