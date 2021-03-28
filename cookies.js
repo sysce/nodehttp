@@ -1,5 +1,6 @@
 // cookie utilities
 'use strict';
+
 module.exports = {
 	parse(string){
 		var array = [];
@@ -57,8 +58,8 @@ module.exports = {
 		
 		return array;
 	},
-	string(parsed){
-		if(Array.isArray(parsed))return parsed.map(this.string).join(' ');
+	format(parsed){
+		if(Array.isArray(parsed))return parsed.map(this.format).join(' ');
 		
 		var out = [];
 		
@@ -86,10 +87,10 @@ module.exports = {
 		
 		return obj;
 	},
-	string_object(object){
+	format_object(object){
 		var out = [];
 		
-		for(var name in object)out.push(this.string(Object.assign(typeof object[name] == 'string' ? { value: object[name] } : object[name], { name: name })));
+		for(var name in object)out.push(this.format(Object.assign(typeof object[name] == 'string' ? { value: object[name] } : object[name], { name: name })));
 		
 		return out.join(' ');
 	},
