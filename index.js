@@ -21,7 +21,6 @@ exports.wrap = str => JSON.stringify([ str ]).slice(1, -1);
 
 exports.valid_json = json => {  try{ return JSON.parse(json) }catch(err){ return null } };
 
-// mime types, status codes, 
 exports.http = {methods:['get','delete','patch','delete','post'],days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],body:['put', 'patch', 'delete', 'post'],mimes:{html:"text/html",htm:"text/html",shtml:"text/html",css:"text/css",xml:"text/xml",gif:"image/gif",jpeg:"image/jpeg",jpg:"image/jpeg",js:"application/javascript",atom:"application/atom+xml",rss:"application/rss+xml",mml:"text/mathml",txt:"text/plain",jad:"text/vnd.sun.j2me.app-descriptor",wml:"text/vnd.wap.wml",htc:"text/x-component",png:"image/png",tif:"image/tiff",tiff:"image/tiff",wbmp:"image/vnd.wap.wbmp",ico:"image/x-icon",jng:"image/x-jng",bmp:"image/x-ms-bmp",svg:"image/svg+xml",svgz:"image/svg+xml",webp:"image/webp",woff:"application/font-woff",jar:"application/java-archive",war:"application/java-archive",ear:"application/java-archive",json:"application/json",hqx:"application/mac-binhex40",doc:"application/msword",pdf:"application/pdf",ps:"application/postscript",eps:"application/postscript",ai:"application/postscript",rtf:"application/rtf",m3u8:"application/vnd.apple.mpegurl",xls:"application/vnd.ms-excel",eot:"application/vnd.ms-fontobject",ppt:"application/vnd.ms-powerpoint",wmlc:"application/vnd.wap.wmlc",kml:"application/vnd.google-earth.kml+xml",kmz:"application/vnd.google-earth.kmz","7z":"application/x-7z-compressed",cco:"application/x-cocoa",jardiff:"application/x-java-archive-diff",jnlp:"application/x-java-jnlp-file",run:"application/x-makeself",pl:"application/x-perl",pm:"application/x-perl",prc:"application/x-pilot",pdb:"application/x-pilot",rar:"application/x-rar-compressed",rpm:"application/x-redhat-package-manager",sea:"application/x-sea",swf:"application/x-shockwave-flash",sit:"application/x-stuffit",tcl:"application/x-tcl",tk:"application/x-tcl",der:"application/x-x509-ca-cert",pem:"application/x-x509-ca-cert",crt:"application/x-x509-ca-cert",xpi:"application/x-xpinstall",xhtml:"application/xhtml+xml",xspf:"application/xspf+xml",zip:"application/zip",bin:"application/octet-stream",exe:"application/octet-stream",dll:"application/octet-stream",deb:"application/octet-stream",dmg:"application/octet-stream",iso:"application/octet-stream",img:"application/octet-stream",msi:"application/octet-stream",msp:"application/octet-stream",msm:"application/octet-stream",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",mid:"audio/midi",midi:"audio/midi",kar:"audio/midi",mp3:"audio/mpeg",ogg:"audio/ogg",m4a:"audio/x-m4a",ra:"audio/x-realaudio","3gpp":"video/3gpp","3gp":"video/3gpp",ts:"video/mp2t",mp4:"video/mp4",mpeg:"video/mpeg",mpg:"video/mpeg",mov:"video/quicktime",webm:"video/webm",flv:"video/x-flv",m4v:"video/x-m4v",mng:"video/x-mng",asx:"video/x-ms-asf",asf:"video/x-ms-asf",wmv:"video/x-ms-wmv",avi:"video/x-msvideo",wasm:"application/wasm",ttf:"font/ttf"}};
 
 exports.hash = str => { var hash = 5381, i = str.length; while(i)hash = (hash * 33) ^ str.charCodeAt(--i); return hash >>> 0; };
@@ -105,7 +104,7 @@ exports.request = class extends events {
 		
 		this.query = Object.fromEntries([...this.url.searchParams.entries()]);
 		this.method = req.method;
-		this.cookies = Object.fromEntries(exports.deconstruct_cookies(req.headers.cookie).map(cookie => [ cookie.name, cookie.value ]));
+		this.cookies = exports.cookies.parse_object(req.headers.cookie);
 		
 		this.req = req;
 		
@@ -216,9 +215,7 @@ exports.response = class extends events {
 		
 		this.req = new exports.request(req, res, server);
 		
-		this.resp = { status: 200 };
-		
-		this.cookies = {};
+		this.status_sent = 200;
 		
 		this.headers = new exports.headers();
 	}
@@ -227,7 +224,7 @@ exports.response = class extends events {
 	* @param {Number} HTTP Status
 	*/
 	status(code){
-		this.resp.status = code;
+		this.status_sent = code;
 		
 		return this;
 	}
@@ -242,6 +239,16 @@ exports.response = class extends events {
 		return this;
 	}
 	/**
+	* Appends to a header
+	* @param {String} Name
+	* @param {String} Value
+	*/
+	append(name, value){
+		this.headers.set(name, value);
+		
+		return this;
+	}
+	/**
 	* Meant to be called internally, finalizes request preventing writing headers
 	*/
 	finalize(){
@@ -249,14 +256,10 @@ exports.response = class extends events {
 		
 		this.resp.sent_head = true;
 		
-		var status = this.resp.status;
+		var status = this.status_sent;
 		
 		// remove trailers on chunked
 		if(this.headers.get('content-encoding') == 'chunked' && this.headers.has('trailer'))this.headers.delete('trailers');
-		
-		// handle cookies
-		
-		if(Object.keys(this.cookies).length)this.headers.append('set-cookie', exports.construct_cookies(Object.entries(this.cookies).map(([ key, val ]) => (val.name = key, val.path = val.path || '/', val.samesite = val.samesite || 'lax', val)), false));
 		
 		this.res.writeHead(status, this.headers.toJSON());
 	}
@@ -281,7 +284,7 @@ exports.response = class extends events {
 	* @param {String|Buffer} [Body]
 	*/
 	write(data){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.body_sent)throw new TypeError('response body already sent!');
 		
 		this.res.write(data);
 		
@@ -292,7 +295,7 @@ exports.response = class extends events {
 	* @param {String|Buffer} Body
 	*/
 	end(data){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.body_sent)throw new TypeError('response body already sent!');
 		
 		if(['boolean', 'number'].includes(typeof data))data += '';
 		
@@ -300,7 +303,7 @@ exports.response = class extends events {
 		
 		this.res.end(data);
 		
-		this.resp.sent_body = true;
+		this.body_sent = true;
 		
 		return this;
 	}
@@ -309,7 +312,7 @@ exports.response = class extends events {
 	* @param {String|Buffer} Body
 	*/
 	send(body){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.body_sent)throw new TypeError('response body already sent!');
 		
 		this.end(body);
 		
@@ -333,7 +336,7 @@ exports.response = class extends events {
 	compress(body, type){
 		var types = ['br', 'gzip', 'deflate']
 		
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.body_sent)throw new TypeError('response body already sent!');
 		
 		if(typeof body == 'string')body = Buffer.from(body);
 		
@@ -402,20 +405,20 @@ exports.response = class extends events {
 		this.status(200);
 		this.headers.set('content-type', mime);
 		
-		this.set('date', exports.date(this.req.date));
+		this.set('date', exports.date.format(this.req.date));
 		
 		// executable file
 		if(listing || this.server.config.execute.includes(ext))return fs.promises.readFile(listing || pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
-			if(!this.resp.sent_body){
+			if(!this.body_sent){
 				this.set('content-length', Buffer.byteLength(data));
 				this.set('etag', this.etag(data));
 				this.send(data);
 			}
 		})).catch(err => console.error(err) + this.send(util.format(err)));
 		
-		if(this.req.headers.has('if-modified-since') && !exports.compare_date(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
+		if(this.req.headers.has('if-modified-since') && !exports.date.compare(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
 		
-		this.set('last-modified', exports.date(stats.mtimeMs));
+		this.set('last-modified', exports.date.format(stats.mtimeMs));
 		
 		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
 		
@@ -441,7 +444,7 @@ exports.response = class extends events {
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
 	*/
 	async cgi_error(code, message = http.STATUS_CODES[code], title = code){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.body_sent)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
 		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(util.format(message)) + '</pre>';
@@ -471,7 +474,7 @@ exports.response = class extends events {
 	* @param {String|URL} URL
 	*/
 	redirect(status, redir){
-		if(this.resp.sent_body)throw new TypeError('response body already sent!');
+		if(this.body_sent)throw new TypeError('response body already sent!');
 		if(this.resp.sent_head)throw new TypeError('response headers already sent!');
 		
 		if(!redir)redir = status, status = 302;
@@ -483,7 +486,7 @@ exports.response = class extends events {
 		this.set('content-type', 'text/html');
 		this.status(status);
 		
-		if(!this.resp.execute)this.send();
+		if(!this.execute_sent)this.send();
 		
 		return this;
 	}
@@ -504,147 +507,11 @@ exports.response = class extends events {
 * @returns {String}
 */
 
-exports.sanitize = string => {
-	return (string + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('')
-};
+exports.sanitize = string => (string + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('');
 
-/**
-* Makes a parsable GMT string for the client 
-* @param {Date|Number} Date
-* @returns {String}
-*/
+exports.date = require('./date.js');
 
-exports.date = date => {
-	if(typeof date == 'number')date = new Date(date);
-	
-	var day_name = exports.http.days[date.getUTCDay()],
-		month = exports.http.months[date.getMonth()],
-		timestamp = [ date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds() ].map(num => (num + '').padStart(2, 0)).join(':'),
-		day = (date.getUTCDate() + '').padStart(2, 0),
-		year = date.getUTCFullYear();
-	
-	// <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
-	return day_name + ', ' + day + ' ' + month + ' ' + year + ' ' + timestamp + ' GMT';
-};
-
-/**
-* Parses a client date eg if-modifed-since
-* @param {String} Header
-* @returns {Date}
-*/
-
-exports.parse_date = date => {
-	if(typeof date == 'number')return new Date(date);
-	if(date instanceof Date)return date;
-	
-	var [ day_name, day, month, year, timestamp, timezone ] = date.split(' '),
-		[ hours, minutes, seconds ] = (timestamp || '').split(':').map(num => parseInt(num)),
-		out = new Date();
-	
-	out.setUTCMonth(exports.http.months.indexOf(month));
-	out.setUTCDate(day);
-	out.setUTCFullYear(year);
-	out.setUTCHours(hours);
-	out.setUTCMinutes(minutes);
-	out.setUTCSeconds(seconds);
-	
-	out.setUTCMilliseconds(0);
-	
-	return out;
-};
-
-/**
-* Compares if date 1 is greater than date 2
-* @param {String|Date} Date 1
-* @param {String|Date} Date 2
-* @returns {Date}
-*/
-
-exports.compare_date = (date1, date2) => {
-	var date1 = exports.parse_date(date1),
-		date2 = exports.parse_date(date2);
-	
-	
-	date1.setUTCMilliseconds(0);
-	date2.setUTCMilliseconds(0);
-	
-	return date1.getTime() > date2.getTime();
-};
-
-exports.construct_cookies = (cookies, join = true) => {
-	var out = cookies.filter(cookie => cookie && cookie.name && cookie.value).map(cookie => {
-		var out = [];
-		
-		out.push(cookie.name + '=' + (cookie.value || ''));
-		
-		if(cookie.secure)out.push('Secure');
-		
-		if(cookie.http_only)out.push('HttpOnly');
-		
-		if(cookie.samesite)out.push('SameSite=' + cookie.samesite);
-		
-		return out.map(value => value + ';').join(' ');
-	});
-	
-	return join ? out.join(' ') : out;
-};
-
-exports.deconstruct_cookies = value => {
-	var cookies = [];
-	
-	if(value)value.split(';').forEach(data => {
-		if(data[0] == ' ')data = data.substr(1);
-		
-		var [ name, value ] = data.split('='),
-			lower_name = name.toLowerCase();
-		
-		if(['domain', 'expires', 'path', 'httponly', 'samesite', 'secure', 'max-age'].includes(lower_name)){
-			var cookie = cookies[cookies.length - 1];
-			
-			if(cookie)switch(lower_name){
-				case'expires':
-					
-					cookie.expires = new Date(value);
-					
-					break;
-				case'path':
-					
-					cookie.path = value;
-					
-					break;
-				case'httponly':
-					
-					cookie.http_only = true;
-					
-					break;
-				case'samesite':
-					
-					cookie.same_site = value ? value.toLowerCase() : 'none';
-					
-					break;
-				case'secure':
-					
-					cookie.secure = true;
-					
-					break;
-				case'priority':
-					
-					cookie.priority = value.toLowerCase();
-					
-					break;
-				case'domain':
-					
-					cookie.domain = value;
-					
-					break;
-			}
-		}else{
-			cookies.push({ name: name, value: value });
-		}
-	});
-	
-	return cookies;
-};
+exports.cookies = require('./cookies.js');
 
 exports.size = {
 	b: 1,
@@ -664,17 +531,13 @@ exports.size = {
 	},
 };
 
-exports.regex = {
-	proto: /^(?:f|ht)tps?\:\/\//,
-};
-
 exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	// replace and execute both in the same regex to avoid content being insert and ran
 	// args can contain additional globals for context
 	
 	body = body.toString();
 	
-	res.resp.execute = true;
+	res.execute_sent = true;
 	
 	var fd = path.dirname(fn),
 		output = '',
@@ -739,10 +602,6 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	context.global = context;
 	
 	try{
-		// "use strict"; ?
-		
-		// type == '=' ? 'echo(' + code + ')' : code, 
-		
 		new AsyncFunction('arguments', Object.keys(context), exports.syntax.parse(exports.syntax.format(body)).map(data => {
 			if(data.type == 'syntax'){
 				var code = data.value.slice(0, -2);
@@ -770,66 +629,16 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	}
 });
 
-exports.fake_ip = [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
-
-exports.add_proto = url => !url.match(exports.regex.proto) ? 'https://' + url : url;
-
-exports.syntax = {
-	regex: /(?<!\\)<\?(?:=|js|php)(?:[\s\S]*?)(?<!\\)\?>/g,
-	variable_php: /\$(\S)/g,
-	format(string){
-		var entries = [];
-		
-		// string = string.replace(this.variable_php, '$1');
-		string.replace(this.regex, (match, offset) => entries.push([ offset, match.length ]));
-		
-		return [ string, entries ];
+exports.url = {
+	fake_ip(){
+		return [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
 	},
-	parse([ string, entries ]){
-		var strings = [];
-
-		strings.push({ type: 'string', value: string });
-		
-		entries.forEach(([ index, length ]) => {
-			var size = 0, index_end = index + length, data;
-			
-			for(var ind in strings){
-				data = strings[ind];
-				
-				if(data.type == 'syntax'){
-					size += data.length;
-					continue;
-				}
-				
-				var real = size,
-					real_end = size + data.value.length;
-				
-				if(real <= index && real_end >= index_end){
-					var relative_index = index - size,
-						relative_index_end = relative_index + length,
-						first_half = data.value.slice(0, relative_index),
-						last_half = data.value.slice(relative_index_end),
-						extracted = data.value.slice(relative_index, relative_index_end);
-					
-					strings = [
-						...strings.splice(0, ind),
-						{ type: 'string', value: first_half },
-						// use provided code variable
-						{ length: length, type: 'syntax', value: extracted },
-						{ type: 'string', value: last_half },
-						...strings.splice(ind + 1),
-					];
-					
-					break;
-				}
-				
-				size += data.value.length
-			}
-		});
-		
-		return strings;
+	add_proto(url){
+		return !url.match(/^(?:f|ht)tps?\:\/\//) ? 'https://' + url : url;
 	},
 };
+
+exports.syntax = require('./syntax.js');
 
 /** 
 * Create an http(s) server with config provided
