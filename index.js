@@ -15,10 +15,6 @@ var fs = require('fs'),
 
 exports.find_arg = (args, type, fallback) => args.find(arg => typeof arg == type) || fallback;
 
-exports.btoa = str => Buffer.from(str || '', 'utf8').toString('base64');
-exports.atob = str => Buffer.from(str || '', 'base64').toString('utf8');
-exports.wrap = str => JSON.stringify([ str ]).slice(1, -1);
-
 exports.valid_json = json => {  try{ return JSON.parse(json) }catch(err){ return null } };
 
 exports.http = {methods:['get','delete','patch','delete','post'],body:['put', 'patch', 'delete', 'post'],mimes:{html:"text/html",htm:"text/html",shtml:"text/html",css:"text/css",xml:"text/xml",gif:"image/gif",jpeg:"image/jpeg",jpg:"image/jpeg",js:"application/javascript",atom:"application/atom+xml",rss:"application/rss+xml",mml:"text/mathml",txt:"text/plain",jad:"text/vnd.sun.j2me.app-descriptor",wml:"text/vnd.wap.wml",htc:"text/x-component",png:"image/png",tif:"image/tiff",tiff:"image/tiff",wbmp:"image/vnd.wap.wbmp",ico:"image/x-icon",jng:"image/x-jng",bmp:"image/x-ms-bmp",svg:"image/svg+xml",svgz:"image/svg+xml",webp:"image/webp",woff:"application/font-woff",jar:"application/java-archive",war:"application/java-archive",ear:"application/java-archive",json:"application/json",hqx:"application/mac-binhex40",doc:"application/msword",pdf:"application/pdf",ps:"application/postscript",eps:"application/postscript",ai:"application/postscript",rtf:"application/rtf",m3u8:"application/vnd.apple.mpegurl",xls:"application/vnd.ms-excel",eot:"application/vnd.ms-fontobject",ppt:"application/vnd.ms-powerpoint",wmlc:"application/vnd.wap.wmlc",kml:"application/vnd.google-earth.kml+xml",kmz:"application/vnd.google-earth.kmz","7z":"application/x-7z-compressed",cco:"application/x-cocoa",jardiff:"application/x-java-archive-diff",jnlp:"application/x-java-jnlp-file",run:"application/x-makeself",pl:"application/x-perl",pm:"application/x-perl",prc:"application/x-pilot",pdb:"application/x-pilot",rar:"application/x-rar-compressed",rpm:"application/x-redhat-package-manager",sea:"application/x-sea",swf:"application/x-shockwave-flash",sit:"application/x-stuffit",tcl:"application/x-tcl",tk:"application/x-tcl",der:"application/x-x509-ca-cert",pem:"application/x-x509-ca-cert",crt:"application/x-x509-ca-cert",xpi:"application/x-xpinstall",xhtml:"application/xhtml+xml",xspf:"application/xspf+xml",zip:"application/zip",bin:"application/octet-stream",exe:"application/octet-stream",dll:"application/octet-stream",deb:"application/octet-stream",dmg:"application/octet-stream",iso:"application/octet-stream",img:"application/octet-stream",msi:"application/octet-stream",msp:"application/octet-stream",msm:"application/octet-stream",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",mid:"audio/midi",midi:"audio/midi",kar:"audio/midi",mp3:"audio/mpeg",ogg:"audio/ogg",m4a:"audio/x-m4a",ra:"audio/x-realaudio","3gpp":"video/3gpp","3gp":"video/3gpp",ts:"video/mp2t",mp4:"video/mp4",mpeg:"video/mpeg",mpg:"video/mpeg",mov:"video/quicktime",webm:"video/webm",flv:"video/x-flv",m4v:"video/x-m4v",mng:"video/x-mng",asx:"video/x-ms-asf",asf:"video/x-ms-asf",wmv:"video/x-ms-wmv",avi:"video/x-msvideo",wasm:"application/wasm",ttf:"font/ttf"}};
@@ -96,6 +92,8 @@ exports.request = class extends events {
 		this.server = server;
 		
 		this.url = new exports.URL(req.url.replace(exports.path_regex, '/'), 'http' + (this.server.config.ssl ? 's' : '') + '://' + req.headers.host);
+		
+		if(this.server.aliases.has(this.url.pathname))this.url.pathname = this.server.aliases.get(this.url.pathname);
 		
 		this.date = new Date();
 		
@@ -342,19 +340,15 @@ exports.response = class extends events {
 	* @param {String|Buffer|Stream} [Body]
 	 @param {String} Encoding ( can be gzip, br, and deflate ), defaults to auto
 	*/
-	compress(body, type){
-		var types = ['br', 'gzip', 'deflate']
-		
+	compress(body){
 		if(this.body_sent)throw new TypeError('response body already sent!');
 		
-		if(typeof body == 'string')body = Buffer.from(body);
-		
-		var accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
-		
-		if(!type)type = types.find(type => accept_encoding.includes(type));
+		var accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', '),
+			types = ['br', 'gzip', 'deflate'] || [],
+			type = types.find(type => accept_encoding.includes(type));
 		
 		// anything below 1mb not worth compressing
-		if(!type || !accept_encoding || !accept_encoding.includes(type))return this.send(body);
+		if(!type || !accept_encoding.includes(type))return body instanceof stream ? this.pipe_from(body) : this.send(body);
 		
 		var compressed = type == 'br' ? zlib.createBrotliCompress() : type == 'gzip' ? zlib.createGzip() : zlib.createDeflate();
 		
@@ -364,118 +358,22 @@ exports.response = class extends events {
 		return this.set('content-encoding', type).pipe_from(compressed);
 	}
 	/**
-	* Generates an etag
-	* @param {String|Buffer} Entity
-	* @returns {String}
-	*/
-	etag(ent){
-		var length = Buffer.byteLength(ent);
-		
-		if(!length)return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
-		
-		var hash = crypto.createHash('sha1').update(ent, 'utf8').digest('base64').substring(0, 27);
-		
-		return '"' + length.toString(16) + '-' + hash + '"';
-	}
-	/**
-	* Sends a static file with a mime type, good for sending video files or anything streamed
-	* @param {String} [File] By default the file is resolved by servers static path
-	*/
-	async static(pub_file = path.join(this.server.config.static, this.req.url.pathname)){
-		if(this.req.url.pathname.startsWith('/cgi/'))return this.cgi_error(403);
-		
-		if(!(await fs_promises_exists(pub_file)))return this.cgi_error(404);
-		
-		// show directory listing?
-		var listing = false;
-		
-		if((await fs.promises.stat(pub_file)).isDirectory()){
-			if(!this.req.url.pathname.endsWith('/'))return this.redirect(301, this.req.url.pathname + '/');
-			
-			var resolved;
-			
-			for(var ind in this.server.config.index){
-				if(await fs_promises_exists(resolved = path.join(pub_file, this.server.config.index[ind])))break;
-				else resolved = pub_file;
-			}
-			
-			pub_file = resolved;
-		}
-		
-		if(!(await fs_promises_exists(pub_file)) || (await fs.promises.stat(pub_file)).isDirectory()){
-			if((await fs.promises.stat(pub_file)).isDirectory() && this.server.config.listing.includes(path.relative(this.server.config.static, pub_file)))listing = this.server.config.cgi_listing;
-			else return this.cgi_error(404);
-		}
-		
-		var ext = (path.extname(listing || pub_file) + ''),
-			mime = this.server.config.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
-			stats = await fs.promises.stat(listing || pub_file);
-		
-		this.status(200);
-		this.headers.set('content-type', mime);
-		
-		this.set('date', exports.date.format(this.req.date));
-		
-		// executable file
-		if(listing || this.server.config.execute.includes(ext))return fs.promises.readFile(listing || pub_file).then(body => exports.html(pub_file, body, this.req, this).then(data => {
-			if(!this.body_sent){
-				this.set('content-length', Buffer.byteLength(data));
-				this.set('etag', this.etag(data));
-				this.send(data);
-			}
-		})).catch(err => console.error(err) + this.send(util.format(err)));
-		
-		if(this.req.headers.has('if-modified-since') && !exports.date.compare(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
-		
-		this.set('last-modified', exports.date.format(stats.mtimeMs));
-		
-		if(this.server.config.cache)this.set('cache-control', 'max-age=' + this.server.config.cache);
-		
-		if(stats.size < (exports.size.gb / 10))fs.promises.readFile(pub_file).then(data => {
-			this.set('content-length', stats.size);
-			this.set('ETag', this.etag(data));
-			
-			if(this.req.headers.has('if-none-match') && this.req.headers.get('if-none-match') == this.headers.get('etag'))return this.status(304).end();
-			
-			this.send(data);
-		}).catch(err => console.error(err) + this.cgi_error(400, err));
-		else{
-			var fst = fs.createReadStream(pub_file),
-				accept_encoding = this.req.headers.has('accept-encoding') && this.req.headers.get('accept-encoding').split(', ');
-			
-			if(this.server.config.compress.includes(ext) && accept_encoding && accept_encoding.includes('gzip'))this.compress(fst);
-			else this.pipe_from(fst);
-		}
-	}
-	/**
-	* Sends a page from the `error.html` file in the `cgi` folder in the static folder, provides the variables $title and $reason in syntax
+	* Displays an error message or status
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
 	*/
-	async cgi_error(code, message = http.STATUS_CODES[code], title = code){
-		if(this.body_sent)throw new TypeError('response body already sent!');
-		if(this.sent_head)throw new TypeError('response headers already sent!');
-		
+	error(code, message = http.STATUS_CODES[code], title = code){
 		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(util.format(message)) + '</pre>';
-		else message = message;
 		
-		var text = await fs_promises_exists(this.server.config.cgi_error) ? await fs.promises.readFile(this.server.config.cgi_error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>';
-		
-		this.set('content-type', 'text/html');
-		this.status(code);
-		
-		exports.html(this.server.config.cgi_error, text, this.req, this, {
-			title: title,
-			reason: message,
-			message: message,
-			error: title + ' ' + message,
-		}).then(data => this.send(data));
-		
-		return this;
+		return this.set('content-type', 'text/html').status(code).send('<!doctype html><html><head><meta charset="utf8"><title>' + title + ' ' + message + '</title></head><body><center><h1>' + title + ' ' + message + '</h1></center><hr><center>nodehttp</center></body></html>');
 	}
 	cgi_status(...args){
-		console.warn('cgi_status is deprecated, change to cgi_error');
-		return this.cgi_error(...args);
+		console.warn('cgi_status is deprecated, change to error');
+		return this.error(...args);
+	}
+	cgi_error(...args){
+		console.warn('cgi_error is deprecated, change to error');
+		return this.error(...args);
 	}
 	/**
 	* Sets the status code and location header
@@ -542,7 +440,6 @@ exports.size = {
 
 exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	// replace and execute both in the same regex to avoid content being insert and ran
-	// args can contain additional globals for context
 	
 	body = body.toString();
 	
@@ -575,6 +472,10 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 			res: res,
 			server: res.server,
 			nodehttp: exports,
+			fs: fs,
+			path: path,
+			btoa: str => Buffer.from(str || '', 'utf8').toString('base64'),
+			atob: str => Buffer.from(str || '', 'base64').toString('utf8'),
 			async include(file){
 				file = context.file(file);
 				
@@ -606,7 +507,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				return fs.statSync(file).mtimeMs;
 			},
-		}, res.server.config.global, args);
+		}, args);
 	
 	context.global = context;
 	
@@ -654,17 +555,10 @@ exports.syntax = require('./syntax.js');
 * @param {Object} [config]
 * @param {Number} [config.port] - Listening port
 * @param {String} [config.address] - Listening address
-* @param {String} [config.static] - Static files
 * @param {Object} [config.ssl ssl] - SSL data
 * @param {String} [config.ssl.key] - SSL key data
 * @param {String} [config.ssl.crt] - SSL certificate data
 * @param {String} [config.type] - Server type, can be http, https, http2, defaults to if SSL is provided = https, otherwise http
-* @param {Object} [config.cache] - Cache duration in seconds for static files, by default off
-* @param {Object} [config.global] - Variables to add to execution context
-* @param {Array} [config.execute] - Extensions that will be executed like PHP eg [ '.html', '.php' ]
-* @param {Array} [config.index] - Filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
-* @param {Array} [config.compress] - Extensions that will automatically be served with compression
-* @param {Array} [config.listing] - Path to folders (relative to static specified) to show the default directory listing ( eg folder in static named "media" will be listing: [ "media" ] )
 */
 
 exports.server = class extends events {
@@ -672,35 +566,23 @@ exports.server = class extends events {
 		super();
 		
 		this.config = Object.assign({
-			cache: false,
 			execute: ['.php', '.jhtml'],
 			index: [ 'index.html', 'index.jhtml', 'index.php' ],
-			global: {
-				fs: fs,
-				path: path,
-				atob: exports.atob,
-				btoa: exports.btoa,
-				nodehttp: exports,
-			},
 			handler: async (req, res) => {
 				if(exports.http.body.includes(req.method.toLowerCase()))await req.process();
 				
-				this.pick_route(req, res, [...this.routes], this.config.static && await fs_promises_exists(this.config.static));
+				this.pick_route(req, res, [...this.routes]);
 			},
-			compress: [ '.wasm', '.unityweb', '.css', '.js', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.json' ],
-			listing: [],
 			port: 8080,
 			address: '127.0.0.1',
-			static: '',
 			type: config.ssl ? 'https' : 'http',
 			log_ready: false,
 		}, config);
 		
-		this.routes = [];
+		if(this.config.static)throw new TypeError('`static` has been changed. Check documentation or try: server.use(nodehttp.static(' + JSON.stringify(this.config.static) + '))');
 		
-		this.config.cgi = path.join(this.config.static, 'cgi');
-		this.config.cgi_error = path.join(this.config.static, 'cgi', 'error.php');
-		this.config.cgi_listing = path.join(__dirname, 'listing.php');
+		this.routes = [];
+		this.aliases = new Map();
 		
 		this.server = ({ http: http, https: https, http2: http2 })[this.config.type].createServer(this.config.ssl, (req, res) => {
 			var re = new exports.response(req, res, this);
@@ -716,44 +598,179 @@ exports.server = class extends events {
 		this.server.on('connection', socket => this.emit('connection', socket));
 		this.server.on('close', err => this.emit('close', err));
 	}
-	get alias(){
+	get address_alias(){
 		return ['0.0.0.0', '127.0.0.1'].includes(this.config.address) ? 'localhost' : this.config.address;
 	}
 	get url(){
-		return new URL('http' + (this.config.ssl ? 's' : '') + '://' + this.alias + ':' + this.config.port);
+		return new URL('http' + (this.config.ssl ? 's' : '') + '://' + this.address_alias + ':' + this.config.port);
 	}
-	pick_route(req, res, routes, static_exists){
-		var end = routes.findIndex(([ path, callback, method ]) => {
+	pick_route(req, res, routes){
+		var end = routes.findIndex(([ method, path, input, callback ]) => {
 			if(method != '*' && method != req.method)return;
 			else if(path == '*')return true;
 			else if(path instanceof RegExp)return path.test(req.url.pathname);
 			else return path == req.url.pathname;
 		});
 		
-		if(routes[end])routes[end][1](req, res, () => {
+		if(routes[end])req.route = routes[end], routes[end][3](req, res, () => {
 			routes.splice(end, 1);
 			
-			this.pick_route(req, res, routes, static_exists);
+			this.pick_route(req, res, routes);
 		});
-		else if(static_exists)res.static();
-		else res.cgi_error(404);
+		else res.error(404);
+	}
+	/**
+	* An internal redirect
+	* @param {String} path
+	* @param {String} alias
+	*/
+	alias(path, alias){
+		this.aliases.set(path, alias);
+		
+		return this;
 	}
 };
 
-[ [ 'use', '*' ] ].concat(exports.http.methods).forEach(data => {
+/**
+* Generates a ETag
+* @param {String|Buffer|Stream|Number} Data
+* @returns {String} ETag
+*/
+
+exports.etag = data => {
+	var hash = crypto.createHash('sha1').update(data, 'utf8').digest('base64').substring(0, 27);
+	
+	return '"' + Buffer.byteLength(data).toString(16) + '-' + hash + '"';
+};
+
+[ [ 'use', '*' ], [ 'all', '*' ] ].concat(exports.http.methods).forEach(data => {
 	var name, method;
 	
 	if(Array.isArray(data))name = data[0], method = data[1];
 	else name = data;
 	
 	exports.server.prototype[name] = function(...args){
-		var path = exports.find_arg(args, 'string', '*'),
-			callback = exports.find_arg(args, 'function');
-		
-		if(path != '*' && path.includes('*'))path = new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'));
+		var path = typeof args[1] == 'function' ? args[0] : '*',
+			input = path,
+			callback = typeof args[1] == 'function' ? args[1] : args[0],
+			make_regex = path => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'));
 		
 		if(typeof callback != 'function')throw new TypeError('specify a callback (function)');
 		
-		this.routes.push([ path, callback, method ]);
-	}
+		if(path != '*' && path.includes('*'))path = make_regex(path);
+		
+		if(name == 'use'){
+			if(!(path instanceof RegExp))path = make_regex(path);
+			
+			path = new RegExp(path.source + '.*?', path.flags);
+		}
+		
+		this.routes.push([ method, path, input, callback ]);
+	};
 });
+
+/**
+* Static directory handler
+* @param {String} root - Root directory
+* @param {Object} [options.global] - Variables to add to execution context
+* @param {Object} [options.cache] - Cache duration in seconds for static files, by default off
+* @param {Array} [options.execute] - Extensions that will be executed like PHP eg [ '.html', '.php' ]
+* @param {Array} [options.index] - Filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
+* @param {Array} [options.compress] - Extensions that will automatically be served with compression
+* @param {Array} [options.listing] - Path to folders (relative to static specified) to show the default directory listing ( eg folder in static named "media" will be listing: [ "media" ] )
+* @param {Boolean} [options.fallthrough] - If an error occurs, next(err) will be called, otherwise the default error page will show
+* @param {Boolean} [options.error] - If this is set, fallthrough will be ignored and any error page will resolve to the file set by this property
+* @example
+* var nodehttp = require('sys-nodehttp'),
+* 	server = new nodehttp.server({ log_ready: true });
+* 
+* server.use(nodehttp.static('public', { listing: [ '/images' ] }));
+* // The root of the server will be from a relative folder named public, visiting /images will show a directory listing of the folder named images (if it exists)
+*/
+
+exports.static = (root, options = {}) => {
+	options = Object.assign({}, {
+		listing: [],
+		index: [ 'index.html', 'index.php' ],
+		compress: [ '.wasm', '.unityweb', '.css', '.js', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.json' ],
+		execute: ['.php', '.jhtml'],
+		etag: true,
+		fallthrough: true,
+		error: false,
+		lastModified: true,
+		redirect: true,
+		dotfiles: 'ignore',
+	}, options);
+	
+	return async (req, res, next) => {
+		var relative = path.posix.resolve('/', req.url.pathname.substr((req.route[2] == '*' ? '/' : req.route[2]).length)),
+			file = path.join(root, relative),	
+			error = async (...args) => {
+				if(!options.error && options.fallthrough)return next(...args);
+				
+				if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(util.format(message)) + '</pre>';
+				
+				res.set('content-type', 'text/html').status(code);
+
+				exports.html(file, options.error && await fs_promises_exists(options.error) ? await fs.promises.readFile(options.error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>', req, res, {
+					title: title,
+					message: message,
+					error: title + ' ' + message,
+				}).then(data => res.send(data));
+			};
+		
+		if(path.basename(file).startsWith('.') && options.dotfiles == 'ignore')return error(403);
+		
+		if(!(await fs_promises_exists(file)))return error(404);
+		
+		if(options.index && (await fs.promises.stat(file)).isDirectory()){
+			if(!req.url.pathname.endsWith('/') && options.redirect)return res.redirect(301, req.url.pathname + '/');
+			
+			var resolved;
+			
+			for(var ind in options.index){
+				if(await fs_promises_exists(resolved = path.join(file, options.index[ind])))break;
+				else resolved = file;
+			}
+			
+			file = resolved;
+		}
+		
+		if(options.listing.includes(relative) && (await fs.promises.stat(file)).isDirectory())return fs.promises.readFile(path.join(__dirname, 'listing.php')).then(body => exports.html(file, body, req, res, { static_root: root })).then(data => res.send(data));
+		
+		// no index and no file
+		if(!(await fs_promises_exists(file)) || (await fs.promises.stat(file)).isDirectory() || path.basename(file).startsWith('.') && options.dotfiles == 'ignore')return error(404);
+		
+		var ext = (path.extname(file) + ''),
+			mime = options.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
+			stats = await fs.promises.stat(file);
+		
+		res.status(200);
+		res.headers.set('content-type', mime);
+		
+		res.set('date', exports.date.format(res.req.date));
+		
+		// executable file
+		if(options.execute.includes(ext))return fs.promises.readFile(file).then(body => exports.html(file, body, req, res, options.global).then(data => {
+			if(!res.body_sent){
+				res.set('content-length', Buffer.byteLength(data));
+				res.set('etag',  exports.etag(data));
+				res.send(data);
+			}
+		})).catch(err => console.error(err) + res.send(util.format(err)));
+		
+		if(req.headers.has('if-modified-since') && !exports.date.compare(stats.mtimeMs, req.headers.get('if-modified-since')))return res.status(304).end();
+		
+		if(options.lastModified)res.set('last-modified', exports.date.format(stats.mtimeMs));
+		
+		if(res.server.config.cache)res.set('cache-control', 'max-age=' + res.server.config.cache);
+		
+		if(options.etag && req.headers.has('if-none-match') && req.headers.get('if-none-match') == res.headers.get('etag'))return res.status(304).end();
+		
+		if(stats.size < (exports.size.mb * 2))fs.promises.readFile(file).then(data => {
+			if(options.etag)res.set('etag',	exports.etag(data));
+			res.set('content-length', Buffer.byteLength(data));
+			res.send(data);
+		}); else res.compress(fs.createReadStream(file));
+	};
+};

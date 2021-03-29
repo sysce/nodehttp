@@ -96,64 +96,66 @@ folder structure looks like:
 
 ### Table of Contents
 
--   [request][1]
+-   [fetch][1]
     -   [Parameters][2]
-    -   [Properties][3]
-    -   [process][4]
--   [response][5]
-    -   [Parameters][6]
-    -   [Properties][7]
-    -   [status][8]
-        -   [Parameters][9]
-    -   [set][10]
+-   [request][3]
+    -   [Parameters][4]
+    -   [Properties][5]
+    -   [process][6]
+-   [response][7]
+    -   [Parameters][8]
+    -   [Properties][9]
+    -   [status][10]
         -   [Parameters][11]
-    -   [finalize][12]
-    -   [pipe_from][13]
-        -   [Parameters][14]
-    -   [write][15]
-        -   [Parameters][16]
-    -   [end][17]
+    -   [set][12]
+        -   [Parameters][13]
+    -   [append][14]
+        -   [Parameters][15]
+    -   [finalize][16]
+    -   [pipe_from][17]
         -   [Parameters][18]
-    -   [send][19]
+    -   [pipe][19]
         -   [Parameters][20]
-    -   [json][21]
+    -   [write][21]
         -   [Parameters][22]
-    -   [compress][23]
+    -   [end][23]
         -   [Parameters][24]
-    -   [etag][25]
+    -   [send][25]
         -   [Parameters][26]
-    -   [static][27]
+    -   [json][27]
         -   [Parameters][28]
-    -   [sanitize][29]
+    -   [compress][29]
         -   [Parameters][30]
-    -   [cgi_status][31]
+    -   [error][31]
         -   [Parameters][32]
     -   [redirect][33]
         -   [Parameters][34]
-    -   [content_type][35]
+    -   [contentType][35]
         -   [Parameters][36]
-    -   [contentType][37]
-        -   [Parameters][38]
-    -   [date][39]
-        -   [Parameters][40]
-    -   [parse_date][41]
+-   [sanitize][37]
+    -   [Parameters][38]
+-   [server][39]
+    -   [Parameters][40]
+    -   [alias][41]
         -   [Parameters][42]
-    -   [compare_date][43]
-        -   [Parameters][44]
--   [server][45]
+-   [etag][43]
+    -   [Parameters][44]
+-   [static][45]
     -   [Parameters][46]
-    -   [get][47]
-        -   [Parameters][48]
-    -   [post][49]
-        -   [Parameters][50]
-    -   [put][51]
-        -   [Parameters][52]
-    -   [patch][53]
-        -   [Parameters][54]
-    -   [delete][55]
-        -   [Parameters][56]
-    -   [use][57]
-        -   [Parameters][58]
+    -   [Examples][47]
+
+## fetch
+
+Send a client request, similar to fetch
+
+### Parameters
+
+-   `url`  
+-   `opts`   (optional, default `{}`)
+-   `URL` **([URL][48] \| [string][49])** 
+-   `Options` **[Object][50]?** 
+
+Returns **[Promise][51]** exports.client_response
 
 ## request
 
@@ -163,21 +165,21 @@ Base request class
 
 ### Parameters
 
--   `request` **[Object][59]** 
--   `response` **[Object][59]** 
--   `server` **[Object][59]** 
+-   `request` **[Object][50]** 
+-   `response` **[Object][50]** 
+-   `server` **[Object][50]** 
 
 ### Properties
 
--   `headers` **[Object][59]** Contains HTTP headers
--   `body` **([Object][59] \| [String][60] \| [Array][61] \| [Number][62])** Contains POST body if applicable (once process is called)
--   `url` **[URL][63]** URL object from request (contains host)
+-   `headers` **[Object][50]** Contains HTTP headers
+-   `body` **([Object][50] \| [String][49] \| [Array][52] \| [Number][53])** Contains POST body if applicable (once process is called)
+-   `url` **[URL][48]** URL object from request (contains host)
 
 ### process
 
 Process the POST data if applicable
 
-Returns **[Promise][64]** 
+Returns **[Promise][51]** 
 
 ## response
 
@@ -187,15 +189,15 @@ Base response class
 
 ### Parameters
 
--   `request` **[Object][59]** 
--   `response` **[Object][59]** 
--   `server` **[Object][59]** 
+-   `request` **[Object][50]** 
+-   `response` **[Object][50]** 
+-   `server` **[Object][50]** 
 
 ### Properties
 
--   `cookies` **[Object][59]** Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
--   `body` **([Object][59] \| [String][60] \| [Array][61] \| [Number][62])** Contains POST body if applicable (once process is called)
--   `headers` **[URL][63]** Set headers
+-   `cookies` **[Object][50]** Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
+-   `body` **([Object][50] \| [String][49] \| [Array][52] \| [Number][53])** Contains POST body if applicable (once process is called)
+-   `headers` **[URL][48]** Set headers
 
 ### status
 
@@ -204,7 +206,7 @@ Set the response status code
 #### Parameters
 
 -   `code`  
--   `HTTP` **[Number][62]** Status
+-   `HTTP` **[Number][53]** Status
 
 ### set
 
@@ -214,8 +216,19 @@ Set a header
 
 -   `name`  
 -   `value`  
--   `Name` **[String][60]** 
--   `Value` **[String][60]** 
+-   `Name` **[String][49]** 
+-   `Value` **[String][49]** 
+
+### append
+
+Appends to a header
+
+#### Parameters
+
+-   `name`  
+-   `value`  
+-   `Name` **[String][49]** 
+-   `Value` **[String][49]** 
 
 ### finalize
 
@@ -228,7 +241,16 @@ Pipes the stream to the response
 #### Parameters
 
 -   `stream`  
--   `Stream` **[Stream][65]** 
+-   `Stream` **[Stream][54]** 
+
+### pipe
+
+Pipes response into stream
+
+#### Parameters
+
+-   `stream`  
+-   `Stream` **[Stream][54]** 
 
 ### write
 
@@ -237,7 +259,7 @@ Writes data to the response
 #### Parameters
 
 -   `data`  
--   `Body` **([String][60] \| [Buffer][66])?** 
+-   `Body` **([String][49] \| [Buffer][55])?** 
 
 ### end
 
@@ -246,7 +268,7 @@ Closes the response with any additional data
 #### Parameters
 
 -   `data`  
--   `Body` **([String][60] \| [Buffer][66])** 
+-   `Body` **([String][49] \| [Buffer][55])** 
 
 ### send
 
@@ -255,7 +277,7 @@ Closes the response with data and sends headers
 #### Parameters
 
 -   `body`  
--   `Body` **([String][60] \| [Buffer][66])** 
+-   `Body` **([String][49] \| [Buffer][55])** 
 
 ### json
 
@@ -264,7 +286,7 @@ Calls send with JSON.stringifyied data from the body
 #### Parameters
 
 -   `object`  
--   `Body` **([Object][59] \| [Array][61] \| [String][60] \| [Number][62])** 
+-   `Body` **([Object][50] \| [Array][52] \| [String][49] \| [Number][53])** 
 
 ### compress
 
@@ -272,53 +294,21 @@ Pipes data from zlib to the response
 
 #### Parameters
 
--   `type`  
 -   `body`  
--   `Encoding` **[String][60]** ( can be gzip, br, and deflate )
--   `Body` **([String][60] \| [Buffer][66])?** 
+-   `Body` **([String][49] \| [Buffer][55] \| [Stream][54])?** 
+-   `Encoding` **[String][49]** ( can be gzip, br, and deflate ), defaults to auto
 
-### etag
+### error
 
-Generates an etag
-
-#### Parameters
-
--   `ent`  
--   `Entity` **([String][60] \| [Buffer][66])** 
-
-Returns **[String][60]** 
-
-### static
-
-Sends a static file with a mime type, good for sending video files or anything streamed
-
-#### Parameters
-
--   `pub_file`   (optional, default `path.join(this.server.static,this.req.url.pathname)`)
--   `File` **[String][60]?** By default the file is resolved by servers static path
-
-### sanitize
-
-Sanitizes a string
-
-#### Parameters
-
--   `string`  
--   `String`  
-
-Returns **[String][60]** 
-
-### cgi_status
-
-Sends a page from the `error.html` file in the `cgi` folder in the static folder, provides the variables $title and $reason in syntax
+Displays an error message or status
 
 #### Parameters
 
 -   `code`  
--   `message`   (optional, default `exports.http.status_codes[code]`)
+-   `message`   (optional, default `http.STATUS_CODES[code]`)
 -   `title`   (optional, default `code`)
--   `HTTP` **[Number][62]** status code
--   `Message` **([String][60] \| [Error][67] \| [Number][62] \| [Object][59] \| [Array][61])** , util.format is called on errors and has <pre> tags added
+-   `HTTP` **[Number][53]** status code
+-   `Message` **([String][49] \| [Error][56] \| [Number][53] \| [Object][50] \| [Array][52])** , util.format is called on errors and has <pre> tags added
 
 ### redirect
 
@@ -328,61 +318,28 @@ Sets the status code and location header
 
 -   `status`  
 -   `redir`  
--   `Status` **[Number][62]?** Param can be the location and will be set to 302
--   `URL` **([String][60] \| [URL][63])** 
+-   `Status` **[Number][53]?** Param can be the location and will be set to 302
+-   `URL` **([String][49] \| [URL][48])** 
 
-### content_type
+### contentType
 
 Sets the content-type header
 
 #### Parameters
 
 -   `value`  
--   `Content` **[String][60]** type
+-   `Content` **[String][49]** type
 
-### contentType
+## sanitize
 
-Sets the content-type header, alias of content_type
+Sanitizes a string
 
-#### Parameters
+### Parameters
 
--   `value`  
--   `Content` **[String][60]** type
+-   `string`  
+-   `String`  
 
-### date
-
-Makes a parsable GMT string for the client
-
-#### Parameters
-
--   `date`  
--   `Date` **([Date][68] \| [Number][62])** 
-
-Returns **[String][60]** 
-
-### parse_date
-
-Parses a client date eg if-modifed-since
-
-#### Parameters
-
--   `date`  
--   `Header` **[String][60]** 
-
-Returns **[Date][68]** 
-
-### compare_date
-
-Compares if date 1 is greater than date 2
-
-#### Parameters
-
--   `date1`  
--   `date2`  
--   `Date` **([String][60] \| [Date][68])** 1
--   `Date` **([String][60] \| [Date][68])** 2
-
-Returns **[Date][68]** 
+Returns **[String][49]** 
 
 ## server
 
@@ -392,145 +349,112 @@ Create an http(s) server with config provided
 
 ### Parameters
 
--   `config` **[Object][59]?** 
-    -   `config.routes` **[Array][61]?** all routes to go through, \[ ['/regex or string', (req, res) => {} ] ]
-    -   `config.port` **[Number][62]?** port to run server on
-    -   `config.address` **[String][60]?** address to run server on
-    -   `config.static` **[String][60]?** static directory to load files from
-    -   `config.global` **[Object][59]?** global arguments to pass to execution
-    -   `config.cache` **[Object][59]?** Cache duration in seconds, default is 604800
-    -   `config.execute` **[Array][61]?** An array of extensions that will be executed like PHP eg [ '.html', '.php' ]
-    -   `config.index` **[Array][61]?** An array of filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
-    -   `config.ready` **[Function][69]?** function to call on server being ready
--   `Object`  ssl] - data to use with server, if not specified server will be HTTP only
+-   `config` **[Object][50]?** 
+    -   `config.port` **[Number][53]?** Listening port
+    -   `config.address` **[String][49]?** Listening address
+    -   `config.type` **[String][49]?** Server type, can be http, https, http2, defaults to if SSL is provided = https, otherwise http
+-   `Object`  ssl] - SSL data
 
-### get
+### alias
 
-add a GET route
+An internal redirect
 
 #### Parameters
 
--   `a1`  
--   `a2`  
--   `Path` **[string][60]** 
--   `Handler` **[function][69]** 
+-   `path` **[String][49]** 
+-   `alias` **[String][49]** 
 
-### post
+## etag
 
-add a POST route
+Generates a ETag
 
-#### Parameters
+### Parameters
 
--   `a1`  
--   `a2`  
--   `Path` **[string][60]** 
--   `Handler` **[function][69]** 
+-   `data`  
+-   `Data` **([String][49] \| [Buffer][55] \| [Stream][54] \| [Number][53])** 
 
-### put
+Returns **[String][49]** ETag
 
-add a PUT route
+## static
 
-#### Parameters
+Static directory handler
 
--   `a1`  
--   `a2`  
--   `Path` **[string][60]** 
--   `Handler` **[function][69]** 
+### Parameters
 
-### patch
+-   `root` **[String][49]** Root directory
+-   `options`   (optional, default `{}`)
 
-add a PATCH route
+### Examples
 
-#### Parameters
+```javascript
+var nodehttp = require('sys-nodehttp'),
+	server = new nodehttp.server({ log_ready: true });
 
--   `a1`  
--   `a2`  
--   `Path` **[string][60]** 
--   `Handler` **[function][69]** 
+server.use(nodehttp.static('public', { listing: [ '/images' ] }));
+// The root of the server will be from a relative folder named public, visiting /images will show a directory listing of the folder named images (if it exists)
+```
 
-### delete
-
-add a DELETE route
-
-#### Parameters
-
--   `a1`  
--   `a2`  
--   `Path` **[string][60]** 
--   `Handler` **[function][69]** 
-
-### use
-
-add a route for all
-
-#### Parameters
-
--   `a1`  
--   `a2`  
--   `Path` **[string][60]** 
--   `Handler` **[function][69]** 
-
-[1]: #request
+[1]: #fetch
 
 [2]: #parameters
 
-[3]: #properties
+[3]: #request
 
-[4]: #process
+[4]: #parameters-1
 
-[5]: #response
+[5]: #properties
 
-[6]: #parameters-1
+[6]: #process
 
-[7]: #properties-1
+[7]: #response
 
-[8]: #status
+[8]: #parameters-2
 
-[9]: #parameters-2
+[9]: #properties-1
 
-[10]: #set
+[10]: #status
 
 [11]: #parameters-3
 
-[12]: #finalize
+[12]: #set
 
-[13]: #pipe_from
+[13]: #parameters-4
 
-[14]: #parameters-4
+[14]: #append
 
-[15]: #write
+[15]: #parameters-5
 
-[16]: #parameters-5
+[16]: #finalize
 
-[17]: #end
+[17]: #pipe_from
 
 [18]: #parameters-6
 
-[19]: #send
+[19]: #pipe
 
 [20]: #parameters-7
 
-[21]: #json
+[21]: #write
 
 [22]: #parameters-8
 
-[23]: #compress
+[23]: #end
 
 [24]: #parameters-9
 
-[25]: #etag
+[25]: #send
 
 [26]: #parameters-10
 
-[27]: #static
+[27]: #json
 
 [28]: #parameters-11
 
-[29]: #sanitize
+[29]: #compress
 
 [30]: #parameters-12
 
-[31]: #cgi_status
+[31]: #error
 
 [32]: #parameters-13
 
@@ -538,72 +462,46 @@ add a route for all
 
 [34]: #parameters-14
 
-[35]: #content_type
+[35]: #contenttype
 
 [36]: #parameters-15
 
-[37]: #contenttype
+[37]: #sanitize
 
 [38]: #parameters-16
 
-[39]: #date
+[39]: #server
 
 [40]: #parameters-17
 
-[41]: #parse_date
+[41]: #alias
 
 [42]: #parameters-18
 
-[43]: #compare_date
+[43]: #etag
 
 [44]: #parameters-19
 
-[45]: #server
+[45]: #static
 
 [46]: #parameters-20
 
-[47]: #get
+[47]: #examples
 
-[48]: #parameters-21
+[48]: https://developer.mozilla.org/docs/Web/API/URL/URL
 
-[49]: #post
+[49]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
 
-[50]: #parameters-22
+[50]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
 
-[51]: #put
+[51]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise
 
-[52]: #parameters-23
+[52]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
 
-[53]: #patch
+[53]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
 
-[54]: #parameters-24
+[54]: https://nodejs.org/api/stream.html
 
-[55]: #delete
+[55]: https://nodejs.org/api/buffer.html
 
-[56]: #parameters-25
-
-[57]: #use
-
-[58]: #parameters-26
-
-[59]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
-
-[60]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
-
-[61]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
-
-[62]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
-
-[63]: https://developer.mozilla.org/docs/Web/API/URL/URL
-
-[64]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise
-
-[65]: https://nodejs.org/api/stream.html
-
-[66]: https://nodejs.org/api/buffer.html
-
-[67]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error
-
-[68]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Date
-
-[69]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function
+[56]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error

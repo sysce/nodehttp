@@ -19,7 +19,7 @@ function e(e,a,r,i,d,o,s){if('.'!=e&&'..'!=e){var l=document.location.pathname;'
 
 var has_parent = r, add_row = e, start = a;
 
-start(<?=JSON.stringify('/' + path.relative(server.config.static, file('./')))?>);
+start(<?=JSON.stringify('/' + path.relative(static_root, file('./')))?>);
 
 <?=__filename == server.config.static ? '' : 'has_parent();'?>;
 

@@ -57,8 +57,8 @@ exports.parse = date => {
 */
 
 exports.compare = (date1, date2) => {
-	var date1 = exports.parse_date(date1),
-		date2 = exports.parse_date(date2);
+	var date1 = exports.parse(date1),
+		date2 = exports.parse(date2);
 	
 	
 	date1.setUTCMilliseconds(0);
