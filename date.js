@@ -1,6 +1,9 @@
 // date utilities
 'use strict';
 
+exports.days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+exports.months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 /**
 * Makes a parsable GMT string for the client 
 * @param {Date|Number} Date
@@ -10,8 +13,8 @@
 exports.format = date => {
 	if(typeof date == 'number')date = new Date(date);
 	
-	var day_name = exports.http.days[date.getUTCDay()],
-		month = exports.http.months[date.getMonth()],
+	var day_name = exports.days[date.getUTCDay()],
+		month = exports.months[date.getMonth()],
 		timestamp = [ date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds() ].map(num => (num + '').padStart(2, 0)).join(':'),
 		day = (date.getUTCDate() + '').padStart(2, 0),
 		year = date.getUTCFullYear();
@@ -34,7 +37,7 @@ exports.parse = date => {
 		[ hours, minutes, seconds ] = (timestamp || '').split(':').map(num => parseInt(num)),
 		out = new Date();
 	
-	out.setUTCMonth(exports.http.months.indexOf(month));
+	out.setUTCMonth(exports.months.indexOf(month));
 	out.setUTCDate(day);
 	out.setUTCFullYear(year);
 	out.setUTCHours(hours);
