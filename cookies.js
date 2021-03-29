@@ -92,6 +92,6 @@ module.exports = {
 		
 		for(var name in object)out.push(this.format(Object.assign(typeof object[name] == 'string' ? { value: object[name] } : object[name], { name: name })));
 		
-		return out.join(' ');
+		return out;
 	},
 };

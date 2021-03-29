@@ -139,6 +139,11 @@ exports.request = class extends events {
 						this.body = Object.fromEntries([...new URLSearchParams(this.raw_body.toString()).entries()]);
 						
 						break;
+					default:
+						
+						this.body = this.raw_body;
+						
+						break;
 				}
 				
 				resolve();
@@ -218,6 +223,8 @@ exports.response = class extends events {
 		this.status_sent = 200;
 		
 		this.headers = new exports.headers();
+		
+		this.cookies = {};
 	}
 	/**
 	* Set the response status code
@@ -260,6 +267,8 @@ exports.response = class extends events {
 		
 		// remove trailers on chunked
 		if(this.headers.get('content-encoding') == 'chunked' && this.headers.has('trailer'))this.headers.delete('trailers');
+		
+		exports.cookies.format_object(this.cookies).forEach(value => this.headers.append('set-cookie', value));
 		
 		this.res.writeHead(status, this.headers.toJSON());
 	}
