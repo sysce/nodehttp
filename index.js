@@ -606,7 +606,7 @@ exports.server = class extends events {
 	}
 	pick_route(req, res, routes){
 		var end = routes.findIndex(([ method, path, input, callback ]) => {
-			if(method != '*' && method != req.method)return;
+			if(method != '*' && method != req.method.toLowerCase())return;
 			else if(path == '*')return true;
 			else if(path instanceof RegExp)return path.test(req.url.pathname);
 			else return path == req.url.pathname;
@@ -647,7 +647,7 @@ exports.etag = data => {
 	var name, method;
 	
 	if(Array.isArray(data))name = data[0], method = data[1];
-	else name = data;
+	else name = method = data;
 	
 	exports.server.prototype[name] = function(...args){
 		var path = typeof args[1] == 'function' ? args[0] : '*',
