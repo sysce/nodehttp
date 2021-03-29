@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-	parse(string){
+	parse(string = ''){
 		var array = [];
 		
 		string.split(' ').forEach(data => {
