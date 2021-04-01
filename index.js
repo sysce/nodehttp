@@ -11,6 +11,8 @@ var fs = require('fs'),
 	crypto = require('crypto'),
 	stream = require('stream'),
 	AsyncFunction = (async _=>_).constructor,
+	fs_promises_read = (...args) => new Promise((resolve, reject) => fs.read(...args, (err, bytes, buffer) => err ? reject(err) : resolve(buffer))),
+	fs_promises_close = pointer => new Promise((resolve, reject) => fs.close(pointer, err => err ? reject(err) : resolve())),
 	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK).then(() => resolve(true)).catch(err => resolve(false)));
 
 exports.find_arg = (args, type, fallback) => args.find(arg => typeof arg == type) || fallback;
@@ -692,7 +694,7 @@ exports.static = (root, options = {}) => {
 	options = Object.assign({}, {
 		listing: [],
 		index: [ 'index.html', 'index.php' ],
-		compress: [ '.wasm', '.unityweb', '.css', '.js', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.json' ],
+		compress: [], // [ '.wasm', '.unityweb', '.css', '.js', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.json' ],
 		execute: ['.php', '.jhtml'],
 		etag: true,
 		fallthrough: true,
@@ -743,7 +745,20 @@ exports.static = (root, options = {}) => {
 		
 		var ext = (path.extname(file) + ''),
 			mime = options.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
-			stats = await fs.promises.stat(file);
+			stats = await fs.promises.stat(file),
+			handle = await fs.promises.open(file, 'r'),
+			first_five = await fs_promises_read(handle.fd, Buffer.alloc(5, [0, 0, 0, 0, 0]), 0, 5, 0),
+			encoding = first_five[0] === 0xEF && first_five[1] === 0xBB && first_five[2] === 0xBF
+			? 'UTF-8'
+			: first_five[0] === 0xFE && first_five[1] === 0xFF
+				? 'UTF-16BE'
+				: first_five[0] === 0xFF && first_five[1] === 0xFE
+					? 'UTF-16LE'
+					: null; // 'ascii';
+		
+		await handle.close();
+		
+		if(encoding)mime += '; charset=' + encoding;
 		
 		res.status(200);
 		res.headers.set('content-type', mime);

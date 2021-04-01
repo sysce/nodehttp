@@ -39,6 +39,8 @@ server.post('/api', (req, res) => {
 	// req.body is an object
 	console.log('Recieved POST with body:', req.body);
 });
+
+server.use(nodehttp.static(path.join(__dirname, 'public')));
 ${ttt}
 
 ### Execution:
@@ -83,7 +85,6 @@ await new Promise(resolve => setTimeout(() => resolve(), duration * 1000));
 
 echo('No echo is needed, the async function ends with or without');
 ?>
-
 <p>Hello world!</p>
 ${ttt}
 
@@ -95,6 +96,7 @@ folder structure looks like:
 - index.php
 - relative.php
 -->
+
 
 <main>
 	<?=await include('./relative.php')?>
