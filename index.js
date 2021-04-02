@@ -236,6 +236,14 @@ exports.response = class extends events {
 		return this;
 	}
 	/**
+	* Gets a set header
+	* @param {String} Name
+	* @param {String} Value
+	*/
+	get(name){
+		return this.headers.get(name);
+	}
+	/**
 	* Set a header
 	* @param {String} Name
 	* @param {String} Value
@@ -682,6 +690,7 @@ exports.etag = data => {
 * @param {Array} [options.listing] - Path to folders (relative to static specified) to show the default directory listing ( eg folder in static named "media" will be listing: [ "media" ] )
 * @param {Boolean} [options.fallthrough] - If an error occurs, next(err) will be called, otherwise the default error page will show
 * @param {Boolean} [options.error] - If this is set, fallthrough will be ignored and any error page will resolve to the file set by this property
+* @param {Function} [options.setHeader] - Function that is called with (res, file, stats), intended to set headers, can be async
 * @example
 * var nodehttp = require('sys-nodehttp'),
 * 	server = new nodehttp.server({ log_ready: true });
@@ -781,6 +790,8 @@ exports.static = (root, options = {}) => {
 		if(res.server.config.cache)res.set('cache-control', 'max-age=' + res.server.config.cache);
 		
 		if(options.etag && req.headers.has('if-none-match') && req.headers.get('if-none-match') == res.headers.get('etag'))return res.status(304).end();
+		
+		if(options.setHeaders)await options.setHeaders(res, file, stats);
 		
 		if(stats.size < (exports.size.mb * 2))fs.promises.readFile(file).then(data => {
 			if(options.etag)res.set('etag',	exports.etag(data));

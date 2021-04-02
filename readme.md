@@ -109,42 +109,44 @@ folder structure looks like:
     -   [Properties][9]
     -   [status][10]
         -   [Parameters][11]
-    -   [set][12]
+    -   [get][12]
         -   [Parameters][13]
-    -   [append][14]
+    -   [set][14]
         -   [Parameters][15]
-    -   [finalize][16]
-    -   [pipe_from][17]
-        -   [Parameters][18]
-    -   [pipe][19]
+    -   [append][16]
+        -   [Parameters][17]
+    -   [finalize][18]
+    -   [pipe_from][19]
         -   [Parameters][20]
-    -   [write][21]
+    -   [pipe][21]
         -   [Parameters][22]
-    -   [end][23]
+    -   [write][23]
         -   [Parameters][24]
-    -   [send][25]
+    -   [end][25]
         -   [Parameters][26]
-    -   [json][27]
+    -   [send][27]
         -   [Parameters][28]
-    -   [compress][29]
+    -   [json][29]
         -   [Parameters][30]
-    -   [error][31]
+    -   [compress][31]
         -   [Parameters][32]
-    -   [redirect][33]
+    -   [error][33]
         -   [Parameters][34]
-    -   [contentType][35]
+    -   [redirect][35]
         -   [Parameters][36]
--   [sanitize][37]
-    -   [Parameters][38]
--   [server][39]
+    -   [contentType][37]
+        -   [Parameters][38]
+-   [sanitize][39]
     -   [Parameters][40]
-    -   [alias][41]
-        -   [Parameters][42]
--   [etag][43]
-    -   [Parameters][44]
--   [static][45]
+-   [server][41]
+    -   [Parameters][42]
+    -   [alias][43]
+        -   [Parameters][44]
+-   [etag][45]
     -   [Parameters][46]
-    -   [Examples][47]
+-   [static][47]
+    -   [Parameters][48]
+    -   [Examples][49]
 
 ## fetch
 
@@ -154,10 +156,10 @@ Send a client request, similar to fetch
 
 -   `url`  
 -   `opts`   (optional, default `{}`)
--   `URL` **([URL][48] \| [string][49])** 
--   `Options` **[Object][50]?** 
+-   `URL` **([URL][50] \| [string][51])** 
+-   `Options` **[Object][52]?** 
 
-Returns **[Promise][51]** exports.client_response
+Returns **[Promise][53]** exports.client_response
 
 ## request
 
@@ -167,21 +169,21 @@ Base request class
 
 ### Parameters
 
--   `request` **[Object][50]** 
--   `response` **[Object][50]** 
--   `server` **[Object][50]** 
+-   `request` **[Object][52]** 
+-   `response` **[Object][52]** 
+-   `server` **[Object][52]** 
 
 ### Properties
 
--   `headers` **[Object][50]** Contains HTTP headers
--   `body` **([Object][50] \| [String][49] \| [Array][52] \| [Number][53])** Contains POST body if applicable (once process is called)
--   `url` **[URL][48]** URL object from request (contains host)
+-   `headers` **[Object][52]** Contains HTTP headers
+-   `body` **([Object][52] \| [String][51] \| [Array][54] \| [Number][55])** Contains POST body if applicable (once process is called)
+-   `url` **[URL][50]** URL object from request (contains host)
 
 ### process
 
 Process the POST data if applicable
 
-Returns **[Promise][51]** 
+Returns **[Promise][53]** 
 
 ## response
 
@@ -191,15 +193,15 @@ Base response class
 
 ### Parameters
 
--   `request` **[Object][50]** 
--   `response` **[Object][50]** 
--   `server` **[Object][50]** 
+-   `request` **[Object][52]** 
+-   `response` **[Object][52]** 
+-   `server` **[Object][52]** 
 
 ### Properties
 
--   `cookies` **[Object][50]** Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
--   `body` **([Object][50] \| [String][49] \| [Array][52] \| [Number][53])** Contains POST body if applicable (once process is called)
--   `headers` **[URL][48]** Set headers
+-   `cookies` **[Object][52]** Cookies (if modified, set-cookies will be overwritten, format is { name: '', value: '', secure: true|false, httponly: true|false, domain: '', path: '/', expires: Date }
+-   `body` **([Object][52] \| [String][51] \| [Array][54] \| [Number][55])** Contains POST body if applicable (once process is called)
+-   `headers` **[URL][50]** Set headers
 
 ### status
 
@@ -208,7 +210,17 @@ Set the response status code
 #### Parameters
 
 -   `code`  
--   `HTTP` **[Number][53]** Status
+-   `HTTP` **[Number][55]** Status
+
+### get
+
+Gets a set header
+
+#### Parameters
+
+-   `name`  
+-   `Name` **[String][51]** 
+-   `Value` **[String][51]** 
 
 ### set
 
@@ -218,8 +230,8 @@ Set a header
 
 -   `name`  
 -   `value`  
--   `Name` **[String][49]** 
--   `Value` **[String][49]** 
+-   `Name` **[String][51]** 
+-   `Value` **[String][51]** 
 
 ### append
 
@@ -229,8 +241,8 @@ Appends to a header
 
 -   `name`  
 -   `value`  
--   `Name` **[String][49]** 
--   `Value` **[String][49]** 
+-   `Name` **[String][51]** 
+-   `Value` **[String][51]** 
 
 ### finalize
 
@@ -243,7 +255,7 @@ Pipes the stream to the response
 #### Parameters
 
 -   `stream`  
--   `Stream` **[Stream][54]** 
+-   `Stream` **[Stream][56]** 
 
 ### pipe
 
@@ -252,7 +264,7 @@ Pipes response into stream
 #### Parameters
 
 -   `stream`  
--   `Stream` **[Stream][54]** 
+-   `Stream` **[Stream][56]** 
 
 ### write
 
@@ -261,7 +273,7 @@ Writes data to the response
 #### Parameters
 
 -   `data`  
--   `Body` **([String][49] \| [Buffer][55])?** 
+-   `Body` **([String][51] \| [Buffer][57])?** 
 
 ### end
 
@@ -270,7 +282,7 @@ Closes the response with any additional data
 #### Parameters
 
 -   `data`  
--   `Body` **([String][49] \| [Buffer][55])** 
+-   `Body` **([String][51] \| [Buffer][57])** 
 
 ### send
 
@@ -279,7 +291,7 @@ Closes the response with data and sends headers
 #### Parameters
 
 -   `body`  
--   `Body` **([String][49] \| [Buffer][55])** 
+-   `Body` **([String][51] \| [Buffer][57])** 
 
 ### json
 
@@ -288,7 +300,7 @@ Calls send with JSON.stringifyied data from the body
 #### Parameters
 
 -   `object`  
--   `Body` **([Object][50] \| [Array][52] \| [String][49] \| [Number][53])** 
+-   `Body` **([Object][52] \| [Array][54] \| [String][51] \| [Number][55])** 
 
 ### compress
 
@@ -297,8 +309,8 @@ Pipes data from zlib to the response
 #### Parameters
 
 -   `body`  
--   `Body` **([String][49] \| [Buffer][55] \| [Stream][54])?** 
--   `Encoding` **[String][49]** ( can be gzip, br, and deflate ), defaults to auto
+-   `Body` **([String][51] \| [Buffer][57] \| [Stream][56])?** 
+-   `Encoding` **[String][51]** ( can be gzip, br, and deflate ), defaults to auto
 
 ### error
 
@@ -309,8 +321,8 @@ Displays an error message or status
 -   `code`  
 -   `message`   (optional, default `http.STATUS_CODES[code]`)
 -   `title`   (optional, default `code`)
--   `HTTP` **[Number][53]** status code
--   `Message` **([String][49] \| [Error][56] \| [Number][53] \| [Object][50] \| [Array][52])** , util.format is called on errors and has <pre> tags added
+-   `HTTP` **[Number][55]** status code
+-   `Message` **([String][51] \| [Error][58] \| [Number][55] \| [Object][52] \| [Array][54])** , util.format is called on errors and has <pre> tags added
 
 ### redirect
 
@@ -320,8 +332,8 @@ Sets the status code and location header
 
 -   `status`  
 -   `redir`  
--   `Status` **[Number][53]?** Param can be the location and will be set to 302
--   `URL` **([String][49] \| [URL][48])** 
+-   `Status` **[Number][55]?** Param can be the location and will be set to 302
+-   `URL` **([String][51] \| [URL][50])** 
 
 ### contentType
 
@@ -330,7 +342,7 @@ Sets the content-type header
 #### Parameters
 
 -   `value`  
--   `Content` **[String][49]** type
+-   `Content` **[String][51]** type
 
 ## sanitize
 
@@ -341,7 +353,7 @@ Sanitizes a string
 -   `string`  
 -   `String`  
 
-Returns **[String][49]** 
+Returns **[String][51]** 
 
 ## server
 
@@ -351,10 +363,10 @@ Create an http(s) server with config provided
 
 ### Parameters
 
--   `config` **[Object][50]?** 
-    -   `config.port` **[Number][53]?** Listening port
-    -   `config.address` **[String][49]?** Listening address
-    -   `config.type` **[String][49]?** Server type, can be http, https, http2, defaults to if SSL is provided = https, otherwise http
+-   `config` **[Object][52]?** 
+    -   `config.port` **[Number][55]?** Listening port
+    -   `config.address` **[String][51]?** Listening address
+    -   `config.type` **[String][51]?** Server type, can be http, https, http2, defaults to if SSL is provided = https, otherwise http
 -   `Object`  ssl] - SSL data
 
 ### alias
@@ -363,8 +375,8 @@ An internal redirect
 
 #### Parameters
 
--   `path` **[String][49]** 
--   `alias` **[String][49]** 
+-   `path` **[String][51]** 
+-   `alias` **[String][51]** 
 
 ## etag
 
@@ -373,9 +385,9 @@ Generates a ETag
 ### Parameters
 
 -   `data`  
--   `Data` **([String][49] \| [Buffer][55] \| [Stream][54] \| [Number][53])** 
+-   `Data` **([String][51] \| [Buffer][57] \| [Stream][56] \| [Number][55])** 
 
-Returns **[String][49]** ETag
+Returns **[String][51]** ETag
 
 ## static
 
@@ -383,7 +395,7 @@ Static directory handler
 
 ### Parameters
 
--   `root` **[String][49]** Root directory
+-   `root` **[String][51]** Root directory
 -   `options`   (optional, default `{}`)
 
 ### Examples
@@ -418,92 +430,96 @@ server.use(nodehttp.static('public', { listing: [ '/images' ] }));
 
 [11]: #parameters-3
 
-[12]: #set
+[12]: #get
 
 [13]: #parameters-4
 
-[14]: #append
+[14]: #set
 
 [15]: #parameters-5
 
-[16]: #finalize
+[16]: #append
 
-[17]: #pipe_from
+[17]: #parameters-6
 
-[18]: #parameters-6
+[18]: #finalize
 
-[19]: #pipe
+[19]: #pipe_from
 
 [20]: #parameters-7
 
-[21]: #write
+[21]: #pipe
 
 [22]: #parameters-8
 
-[23]: #end
+[23]: #write
 
 [24]: #parameters-9
 
-[25]: #send
+[25]: #end
 
 [26]: #parameters-10
 
-[27]: #json
+[27]: #send
 
 [28]: #parameters-11
 
-[29]: #compress
+[29]: #json
 
 [30]: #parameters-12
 
-[31]: #error
+[31]: #compress
 
 [32]: #parameters-13
 
-[33]: #redirect
+[33]: #error
 
 [34]: #parameters-14
 
-[35]: #contenttype
+[35]: #redirect
 
 [36]: #parameters-15
 
-[37]: #sanitize
+[37]: #contenttype
 
 [38]: #parameters-16
 
-[39]: #server
+[39]: #sanitize
 
 [40]: #parameters-17
 
-[41]: #alias
+[41]: #server
 
 [42]: #parameters-18
 
-[43]: #etag
+[43]: #alias
 
 [44]: #parameters-19
 
-[45]: #static
+[45]: #etag
 
 [46]: #parameters-20
 
-[47]: #examples
+[47]: #static
 
-[48]: https://developer.mozilla.org/docs/Web/API/URL/URL
+[48]: #parameters-21
 
-[49]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
+[49]: #examples
 
-[50]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
+[50]: https://developer.mozilla.org/docs/Web/API/URL/URL
 
-[51]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise
+[51]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
 
-[52]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
+[52]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
 
-[53]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
+[53]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise
 
-[54]: https://nodejs.org/api/stream.html
+[54]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
 
-[55]: https://nodejs.org/api/buffer.html
+[55]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
 
-[56]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error
+[56]: https://nodejs.org/api/stream.html
+
+[57]: https://nodejs.org/api/buffer.html
+
+[58]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error
