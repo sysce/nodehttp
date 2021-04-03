@@ -375,7 +375,7 @@ exports.response = class extends events {
 	error(code, message = http.STATUS_CODES[code], title = code){
 		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(util.format(message)) + '</pre>';
 		
-		return this.set('content-type', 'text/html').status(code).send('<!doctype html><html><head><meta charset="utf8"><title>' + title + ' ' + message + '</title></head><body><center><h1>' + title + ' ' + message + '</h1></center><hr><center>nodehttp</center></body></html>');
+		return this.set('content-type', 'text/html').status(code).send('<!doctype html><html><head><meta charset="utf8"><title>' + util.format(title) + ' ' + util.format(message) + '</title></head><body><center><h1>' + util.format(title) + ' ' + util.format(message) + '</h1></center><hr><center>nodehttp</center></body></html>');
 	}
 	cgi_status(...args){
 		console.warn('cgi_status is deprecated, change to error');
@@ -471,7 +471,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				return path.resolve(fd, file);
 			},
 			echo(str){
-				return output += str, '';
+				return output += util.format(str);
 			},
 			setTimeout: setTimeout,
 			setInterval: setInterval,
