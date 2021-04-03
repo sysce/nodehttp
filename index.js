@@ -470,8 +470,10 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 			file(file){
 				return path.resolve(fd, file);
 			},
-			echo(str){
-				return output += util.format(str);
+			echo(...args){
+				args.forEach(arg => output += util.format(arg));
+				
+				return true;
 			},
 			setTimeout: setTimeout,
 			setInterval: setInterval,
