@@ -15,13 +15,9 @@ var fs = require('fs'),
 	fs_promises_close = pointer => new Promise((resolve, reject) => fs.close(pointer, err => err ? reject(err) : resolve())),
 	fs_promises_exists = path => new Promise((resolve, reject) => fs.promises.access(path, fs.F_OK).then(() => resolve(true)).catch(err => resolve(false)));
 
-exports.find_arg = (args, type, fallback) => args.find(arg => typeof arg == type) || fallback;
-
 exports.valid_json = json => {  try{ return JSON.parse(json) }catch(err){ return null } };
 
 exports.http = {methods:['get','delete','patch','delete','post'],body:['put', 'patch', 'delete', 'post'],mimes:{html:"text/html",htm:"text/html",shtml:"text/html",css:"text/css",xml:"text/xml",gif:"image/gif",jpeg:"image/jpeg",jpg:"image/jpeg",js:"application/javascript",atom:"application/atom+xml",rss:"application/rss+xml",mml:"text/mathml",txt:"text/plain",jad:"text/vnd.sun.j2me.app-descriptor",wml:"text/vnd.wap.wml",htc:"text/x-component",png:"image/png",tif:"image/tiff",tiff:"image/tiff",wbmp:"image/vnd.wap.wbmp",ico:"image/x-icon",jng:"image/x-jng",bmp:"image/x-ms-bmp",svg:"image/svg+xml",svgz:"image/svg+xml",webp:"image/webp",woff:"application/font-woff",jar:"application/java-archive",war:"application/java-archive",ear:"application/java-archive",json:"application/json",hqx:"application/mac-binhex40",doc:"application/msword",pdf:"application/pdf",ps:"application/postscript",eps:"application/postscript",ai:"application/postscript",rtf:"application/rtf",m3u8:"application/vnd.apple.mpegurl",xls:"application/vnd.ms-excel",eot:"application/vnd.ms-fontobject",ppt:"application/vnd.ms-powerpoint",wmlc:"application/vnd.wap.wmlc",kml:"application/vnd.google-earth.kml+xml",kmz:"application/vnd.google-earth.kmz","7z":"application/x-7z-compressed",cco:"application/x-cocoa",jardiff:"application/x-java-archive-diff",jnlp:"application/x-java-jnlp-file",run:"application/x-makeself",pl:"application/x-perl",pm:"application/x-perl",prc:"application/x-pilot",pdb:"application/x-pilot",rar:"application/x-rar-compressed",rpm:"application/x-redhat-package-manager",sea:"application/x-sea",swf:"application/x-shockwave-flash",sit:"application/x-stuffit",tcl:"application/x-tcl",tk:"application/x-tcl",der:"application/x-x509-ca-cert",pem:"application/x-x509-ca-cert",crt:"application/x-x509-ca-cert",xpi:"application/x-xpinstall",xhtml:"application/xhtml+xml",xspf:"application/xspf+xml",zip:"application/zip",bin:"application/octet-stream",exe:"application/octet-stream",dll:"application/octet-stream",deb:"application/octet-stream",dmg:"application/octet-stream",iso:"application/octet-stream",img:"application/octet-stream",msi:"application/octet-stream",msp:"application/octet-stream",msm:"application/octet-stream",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",mid:"audio/midi",midi:"audio/midi",kar:"audio/midi",mp3:"audio/mpeg",ogg:"audio/ogg",m4a:"audio/x-m4a",ra:"audio/x-realaudio","3gpp":"video/3gpp","3gp":"video/3gpp",ts:"video/mp2t",mp4:"video/mp4",mpeg:"video/mpeg",mpg:"video/mpeg",mov:"video/quicktime",webm:"video/webm",flv:"video/x-flv",m4v:"video/x-m4v",mng:"video/x-mng",asx:"video/x-ms-asf",asf:"video/x-ms-asf",wmv:"video/x-ms-wmv",avi:"video/x-msvideo",wasm:"application/wasm",ttf:"font/ttf"}};
-
-exports.hash = str => { var hash = 5381, i = str.length; while(i)hash = (hash * 33) ^ str.charCodeAt(--i); return hash >>> 0; };
 
 exports.path_regex = /[\/\\]+/g;
 
@@ -35,18 +31,26 @@ exports.client_response = class {
 	constructor(res){
 		this.headers = new exports.headers(res.headers);
 		
+		this.status = res.statusCode;
+		
 		var chunks = [];
 		
 		this.buf = new Promise(resolve => res.on('data', chunk => chunks.push(chunk)).on('end', () => resolve(Buffer.concat(chunks))));
 	}
-	async buffer(){
-		return await this.buf;
+	async buffer(method = 'buffer'){
+		if(!this.buf)throw new TypeError(`Failed to execute '${method}' on 'Response': body stream already read`)
+		
+		var buffer = await this.buf;
+		
+		delete this.buf;
+		
+		return buffer;
 	}
 	async text(){
-		return (await this.buf).toString();
+		return (await this.buffer('text')).toString();
 	}
 	async json(){
-		return JSON.parse((await this.buf).toString());
+		return JSON.parse((await this.buffer('json')).toString());
 	}
 };
 
@@ -103,7 +107,9 @@ exports.request = class extends events {
 		this.real_ip = this.headers.get('cf-connecting-ip') ||  this.headers.get('x-real-ip') || '127.0.0.1';
 		
 		this.query = Object.fromEntries([...this.url.searchParams.entries()]);
-		this.method = req.method;
+		this.method = req.method.toUpperCase();
+		this.raw_method = req.method;
+		
 		this.cookies = exports.cookies.parse_object(req.headers.cookie);
 		
 		this.req = req;
@@ -493,7 +499,6 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				
 				if(typeof file != 'string')throw new TypeError('`file` must be a string');
 				if(!(await fs_promises_exists(file)))throw new TypeError('`file` must exist');
-				if(!res.server.config.execute.includes(path.extname(file)))throw new TypeError('`file` must be one  of the executable extensions: ' + res.server.config.execute.join(', '));
 				
 				var text = await fs.promises.readFile(file, 'utf8');
 				
@@ -551,16 +556,80 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 	}
 });
 
-exports.url = {
-	fake_ip(){
-		return [0,0,0,0].map(_ => ~~(Math.random() * 255) + 1).join('.');
-	},
-	add_proto(url){
-		return !url.match(/^(?:f|ht)tps?\:\/\//) ? 'https://' + url : url;
-	},
-};
-
 exports.syntax = require('./syntax.js');
+
+class router extends events {
+	constructor(){
+		super();
+		
+		this.routes = [];
+		this.aliases = new Map();
+		
+	}
+	/**
+	* Route a request
+	* @param {Object} req - Client request
+	* @param {Object} res - Server response
+	*/
+	async route(req, res, routes = this.routes, err){
+		var end = routes.findIndex(([ method, path, input, callback ]) => {
+				if(method != '*' && method != req.method && (req.method != 'HEAD' || method != 'GET'))return;
+				else if(path == '*')return true;
+				else if(path instanceof RegExp)return path.test(req.url.pathname);
+				else return path == req.url.pathname;
+			}),
+			next = err => this.route(req, res, routes.slice(end + 1), err);
+		
+		if(routes[end]){
+			req.route = routes[end];
+			
+			try{
+				await routes[end][3](req, res, next);
+			}catch(err){
+				console.error('nodehttp caught:');
+				console.error(err);
+				this.route(req, res, routes.slice(end + 1), err);
+			}
+		}else res.error(404);
+	}
+	/**
+	* An internal redirect
+	* @param {String} path
+	* @param {String} alias
+	*/
+	alias(path, alias){
+		this.aliases.set(path, alias);
+		
+		return this;
+	}
+}
+
+// add routes
+[ [ 'use', '*' ], [ 'all', '*' ] ].concat(exports.http.methods).forEach(data => {
+	var name, method;
+	
+	if(Array.isArray(data))name = data[0], method = data[1];
+	else name = method = data;
+	
+	router.prototype[name] = function(...args){
+		var path = typeof args[1] == 'function' ? args[0] : '*',
+			input = path,
+			callback = typeof args[1] == 'function' ? args[1] : args[0],
+			make_regex = path => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'));
+		
+		if(typeof callback != 'function')throw new TypeError('specify a callback (function)');
+		
+		if(path != '*' && path.includes('*'))path = make_regex(path);
+		
+		if(name == 'use'){
+			if(!(path instanceof RegExp))path = make_regex(path);
+			
+			path = new RegExp(path.source + '.*?', path.flags);
+		}
+		
+		this.routes.push([ method.toUpperCase(), path, input, callback ]);
+	};
+});
 
 /** 
 * Create an http(s) server with config provided
@@ -571,19 +640,18 @@ exports.syntax = require('./syntax.js');
 * @param {String} [config.ssl.key] - SSL key data
 * @param {String} [config.ssl.crt] - SSL certificate data
 * @param {String} [config.type] - Server type, can be http, https, http2, defaults to if SSL is provided = https, otherwise http
+* @param {String} [config.server] - Specifies an existing server to use, if set ssl and listening options will be ignored, you will need to call server.handler manually
 */
 
-exports.server = class extends events {
+class server extends router {
 	constructor(config = {}){
 		super();
 		
 		this.config = Object.assign({
-			execute: ['.php', '.jhtml'],
-			index: [ 'index.html', 'index.jhtml', 'index.php' ],
 			handler: async (req, res) => {
 				if(exports.http.body.includes(req.method.toLowerCase()))await req.process();
 				
-				this.pick_route(req, res, [...this.routes]);
+				this.route(req, res);
 			},
 			port: 8080,
 			address: '127.0.0.1',
@@ -593,10 +661,7 @@ exports.server = class extends events {
 		
 		if(this.config.static)throw new TypeError('`static` has been changed. Check documentation or try: server.use(nodehttp.static(' + JSON.stringify(this.config.static) + '))');
 		
-		this.routes = [];
-		this.aliases = new Map();
-		
-		this.server = ({ http: http, https: https, http2: http2 })[this.config.type].createServer(this.config.ssl, (req, res) => {
+		this.server = this.config.server || server.types[this.config.type].createServer(this.config.ssl, (req, res) => {
 			var re = new exports.response(req, res, this);
 			
 			this.config.handler(re.req, re);
@@ -616,32 +681,12 @@ exports.server = class extends events {
 	get url(){
 		return new URL('http' + (this.config.ssl ? 's' : '') + '://' + this.address_alias + ':' + this.config.port);
 	}
-	pick_route(req, res, routes){
-		var end = routes.findIndex(([ method, path, input, callback ]) => {
-			if(method != '*' && method != req.method.toLowerCase())return;
-			else if(path == '*')return true;
-			else if(path instanceof RegExp)return path.test(req.url.pathname);
-			else return path == req.url.pathname;
-		});
-		
-		if(routes[end])req.route = routes[end], routes[end][3](req, res, () => {
-			routes.splice(end, 1);
-			
-			this.pick_route(req, res, routes);
-		});
-		else res.error(404);
-	}
-	/**
-	* An internal redirect
-	* @param {String} path
-	* @param {String} alias
-	*/
-	alias(path, alias){
-		this.aliases.set(path, alias);
-		
-		return this;
-	}
 };
+
+server.types = { http: http, https: https, http2: http2 };
+
+exports.server = server;
+exports.router = router;
 
 /**
 * Generates a ETag
@@ -655,43 +700,18 @@ exports.etag = data => {
 	return '"' + Buffer.byteLength(data).toString(16) + '-' + hash + '"';
 };
 
-[ [ 'use', '*' ], [ 'all', '*' ] ].concat(exports.http.methods).forEach(data => {
-	var name, method;
-	
-	if(Array.isArray(data))name = data[0], method = data[1];
-	else name = method = data;
-	
-	exports.server.prototype[name] = function(...args){
-		var path = typeof args[1] == 'function' ? args[0] : '*',
-			input = path,
-			callback = typeof args[1] == 'function' ? args[1] : args[0],
-			make_regex = path => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'));
-		
-		if(typeof callback != 'function')throw new TypeError('specify a callback (function)');
-		
-		if(path != '*' && path.includes('*'))path = make_regex(path);
-		
-		if(name == 'use'){
-			if(!(path instanceof RegExp))path = make_regex(path);
-			
-			path = new RegExp(path.source + '.*?', path.flags);
-		}
-		
-		this.routes.push([ method, path, input, callback ]);
-	};
-});
-
 /**
 * Static directory handler
 * @param {String} root - Root directory
 * @param {Object} [options.global] - Variables to add to execution context
-* @param {Object} [options.cache] - Cache duration in seconds for static files, by default off
+* @param {Number} [options.maxAge] - Cache maxAge in seconds for static files
 * @param {Array} [options.execute] - Extensions that will be executed like PHP eg [ '.html', '.php' ]
 * @param {Array} [options.index] - Filenames that will be served as an index file eg [ 'index.html', 'index.php', 'homepage.php' ]
 * @param {Array} [options.compress] - Extensions that will automatically be served with compression
 * @param {Array} [options.listing] - Path to folders (relative to static specified) to show the default directory listing ( eg folder in static named "media" will be listing: [ "media" ] )
+* @param {Boolean} [options.redirect] - Redirect to a trailing "/" on directories
 * @param {Boolean} [options.fallthrough] - If an error occurs, next(err) will be called, otherwise the default error page will show
-* @param {Boolean} [options.error] - If this is set, fallthrough will be ignored and any error page will resolve to the file set by this property
+* @param {String} [options.error] - If this is set, fallthrough will be ignored and any error page will resolve to the file set by this property
 * @param {Function} [options.setHeader] - Function that is called with (res, file, stats), intended to set headers, can be async
 * @example
 * var nodehttp = require('sys-nodehttp'),
@@ -713,6 +733,7 @@ exports.static = (root, options = {}) => {
 		lastModified: true,
 		redirect: true,
 		dotfiles: 'ignore',
+		maxAge: 0,
 	}, options);
 	
 	return async (req, res, next) => {
@@ -789,7 +810,7 @@ exports.static = (root, options = {}) => {
 		
 		if(options.lastModified)res.set('last-modified', exports.date.format(stats.mtimeMs));
 		
-		if(res.server.config.cache)res.set('cache-control', 'max-age=' + res.server.config.cache);
+		if(options.maxAge)res.set('cache-control', 'max-age=' + options.maxAge);
 		
 		if(options.etag && req.headers.has('if-none-match') && req.headers.get('if-none-match') == res.headers.get('etag'))return res.status(304).end();
 		
