@@ -59,11 +59,13 @@ exports.parse = (string = '') => {
 };
 
 exports.format = parsed => {
+	if(!parsed.value)return '';
+	
 	if(Array.isArray(parsed))return parsed.map(this.format).join(' ');
 	
 	var out = [];
 	
-	out.push(parsed.name + '=' + (parsed.value || ''));
+	out.push(parsed.name + '=' + parsed.value);
 	
 	if(parsed.secure)out.push('Secure');
 	
@@ -94,5 +96,5 @@ exports.format_object = object => {
 	
 	for(var name in object)out.push(this.format(Object.assign(typeof object[name] == 'string' ? { value: object[name] } : object[name], { name: name })));
 	
-	return out;
+	return out.filter(val => val);
 };
