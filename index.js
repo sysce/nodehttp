@@ -28,14 +28,22 @@ exports.URL = class extends URL {
 };
 
 exports.client_response = class {
-	constructor(res){
+	constructor(url, req, res){
 		this.headers = new exports.headers(res.headers);
 		
-		this.status = res.statusCode;
+		this._url = url;
+		this._res = res;
+		this._req = req;
 		
 		var chunks = [];
 		
-		this.buf = new Promise(resolve => res.on('data', chunk => chunks.push(chunk)).on('end', () => resolve(Buffer.concat(chunks))));
+		this.buf = req.method.toLowerCase() == 'HEAD' ? Promise.resolve(Buffer.from('')) : new Promise(resolve => res.on('data', chunk => chunks.push(chunk)).on('end', () => resolve(Buffer.concat(chunks))));
+	}
+	get status(){
+		return this._res.statusCode;
+	}
+	get url(){
+		return this._url;
 	}
 	async buffer(method = 'buffer'){
 		if(!this.buf)throw new TypeError(`Failed to execute '${method}' on 'Response': body stream already read`)
@@ -78,7 +86,9 @@ exports.fetch = (url, opts = {}) => {
 	
 	if(body && (!opts.method || !exports.http.body.includes(opts.method.toLowerCase())))throw new TypeError('method ' + (opts.method || 'get').toUpperCase() + ' cannot have body');
 	
-	return new Promise((resolve, reject) => (url.protocol == 'https:' ? https : http).request(opts, res => resolve(new exports.client_response(res))).on('error', reject).on('error', reject).end(body));
+	var req;
+	
+	return new Promise((resolve, reject) => req = (url.protocol == 'https:' ? https : http).request(opts, res => resolve(new exports.client_response(url, req, res))).on('error', reject).on('error', reject).end(body));
 };
 
 /**
