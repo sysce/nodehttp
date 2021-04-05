@@ -388,18 +388,18 @@ exports.response = class extends events {
 	* @param {Number} HTTP status code
 	* @param {String|Error|Number|Object|Array} Message, util.format is called on errors and has <pre> tags added
 	*/
-	error(code, message = http.STATUS_CODES[code], title = code){
-		if(message instanceof Error)title = message.code, message = '<pre>' + exports.sanitize(util.format(message)) + '</pre>';
+	error(code, message, title = code){
+		if(!message)title = code + ' ' + http.STATUS_CODES[code];
 		
-		return this.set('content-type', 'text/html').status(code).send('<!doctype html><html><head><meta charset="utf8"><title>' + util.format(title) + ' ' + util.format(message) + '</title></head><body><center><h1>' + util.format(title) + ' ' + util.format(message) + '</h1></center><hr><center>nodehttp</center></body></html>');
-	}
-	cgi_status(...args){
-		console.warn('cgi_status is deprecated, change to error');
-		return this.error(...args);
-	}
-	cgi_error(...args){
-		console.warn('cgi_error is deprecated, change to error');
-		return this.error(...args);
+		this.set('content-type', 'text/html').status(code)
+		
+		if(message){
+			var formatted = util.format(message);
+			
+			if(message instanceof Error)formatted = '<pre>' + formatted + '</pre>';
+			
+			this.send(`<!doctype html><html><head><title>${code} ${message=http.STATUS_CODES[code]}</title></head><body><h1>${code} ${message}</h1><hr><p>${formatted}</p></body></html>`);
+		}else this.send(`<!doctype html><html><head><title>${code} ${message=http.STATUS_CODES[code]}</title></head><body><center><h1>${code} ${message}</h1><hr>nodehttp</center></body></html>`);
 	}
 	/**
 	* Sets the status code and location header
