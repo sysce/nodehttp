@@ -1,6 +1,8 @@
 // cookie utilities
 'use strict';
 
+exports.max_size = 4096;
+
 exports.parse = (string = '') => {
 	var array = [];
 	
@@ -75,7 +77,7 @@ exports.format = parsed => {
 	
 	if(parsed.domain)out.push('domain=' + parsed.domain);
 	
-	return out.map(value => value + ';').join(' ');
+	return out.map(value => value + ';').join(' ').substr(0, exports.max_size);
 };
 
 exports.parse_object = (string, detail) => {
