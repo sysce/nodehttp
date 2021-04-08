@@ -122,11 +122,11 @@ exports.request = class extends events {
 		
 		this.cookies = exports.cookies.parse_object(req.headers.cookie);
 		
-		this.req = req;
+		this.stream = req;
 		
 		this.body = {};
 		
-		this.req.on('close', err => this.emit('close', err));
+		this.stream.on('close', err => this.emit('close', err));
 	}
 	/**
 	* Process the POST data if applicable
@@ -136,7 +136,7 @@ exports.request = class extends events {
 		return new Promise((resolve, reject) => {
 			var post_chunks = [];
 			
-			this.req.on('data', chunk => post_chunks.push(chunk)).on('end', () => {
+			this.stream.on('data', chunk => post_chunks.push(chunk)).on('end', () => {
 				this.raw_body = Buffer.concat(post_chunks);
 				
 				switch((this.headers.get('content-type') + '').replace(/;.*/, '')){
@@ -168,55 +168,6 @@ exports.request = class extends events {
 	}
 }
 
-exports.headers = class extends Map {
-	constructor(headers){
-		super();
-		
-		if(typeof headers == 'object')for(var name in headers)this.set(name, headers[name]);
-	}
-	normal_name(name){
-		if(typeof name != 'string')throw new TypeError('`name` must be a string');
-		
-		return name.toLowerCase().replace(/((?:^|-)[a-z])/g, (match, char) => char.toUpperCase());
-	}
-	normal_value(value){
-		if(typeof value == 'undefined' || value == null)throw new TypeError('`value` must be a value');
-		
-		return [...value.toString().trim()].filter(x => x.charCodeAt()).join('');
-	}
-	arr_to_str(mixed){
-		return Array.isArray(mixed) ? mixed.join(', ') : mixed;
-	}
-	get(name){ 
-		return this.arr_to_str(super.get(this.normal_name(name)));
-	}
-	has(name){
-		return super.has(this.normal_name(name));
-	}
-	delete(name){
-		return super.delete(this.normal_name(name));
-	}
-	set(name, value){
-		return Array.isArray(value) ? value.forEach(data => this.append(name, data)) : super.set(this.normal_name(name), this.normal_value(value));
-	}
-	append(name, value){
-		name = this.normal_name(name);
-		value = this.normal_value(value);
-		
-		if(this.has(name)){
-			var old_value = super.get(name);
-			
-			super.set(name, (Array.isArray(old_value) ? old_value : [ old_value ]).concat(value));
-		}else super.set(name, value);
-	}
-	forEach(callback, thisArg){
-		super.forEach((value, name) => callback.call(thisArg || this, this.normal_value(value), this.normal_name(name), this));
-	}
-	toJSON(){
-		return Object.fromEntries([...super.entries()]);;
-	}
-}
-
 /**
 * Base response class
 * @param {Object} request
@@ -232,7 +183,7 @@ exports.response = class extends events {
 		
 		this.server = server;
 		
-		this.res = res;
+		this.stream = res;
 		
 		this.req = new exports.request(req, res, server);
 		
@@ -294,23 +245,25 @@ exports.response = class extends events {
 		
 		exports.cookies.format_object(this.cookies).forEach(value => this.headers.append('set-cookie', value));
 		
-		this.res.writeHead(status, this.headers.toJSON());
+		this.stream.writeHead(status, this.headers.toJSON());
 	}
 	/**
 	* Pipes the stream to the response
 	* @param {Stream} Stream
 	*/
 	pipe_from(stream){
-		this.finalize();
+		try{
+			this.finalize();
+		}catch(err){}
 		
-		return stream.pipe(this.res);
+		return stream.pipe(this.stream);
 	}
 	/**
 	* Pipes response into stream
 	* @param {Stream} Stream
 	*/
 	pipe(stream){
-		return this.res.pipe(stream);
+		return this.stream.pipe(stream);
 	}
 	/**
 	* Writes data to the response
@@ -319,7 +272,7 @@ exports.response = class extends events {
 	write(data){
 		if(this.body_sent)throw new TypeError('response body already sent!');
 		
-		this.res.write(data);
+		this.stream.write(data);
 		
 		return this;
 	}
@@ -334,7 +287,7 @@ exports.response = class extends events {
 		
 		this.finalize();
 		
-		this.res.end(data);
+		this.stream.end(data);
 		
 		this.body_sent = true;
 		
@@ -432,6 +385,62 @@ exports.response = class extends events {
 		
 		return this;
 	}
+	async sendFile(file, options = {}, callback = err => { if(err)throw err }){
+		try{
+			if(typeof options == 'function')callback = options, options = {};
+			
+			var ext = (path.extname(file) + ''),
+				mime = options.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
+				stats = await fs.promises.stat(file),
+				handle = await fs.promises.open(file, 'r'),
+				first_five = await fs_promises_read(handle.fd, Buffer.alloc(5, [0, 0, 0, 0, 0]), 0, 5, 0),
+				encoding = first_five[0] === 0xEF && first_five[1] === 0xBB && first_five[2] === 0xBF
+				? 'UTF-8'
+				: first_five[0] === 0xFE && first_five[1] === 0xFF
+					? 'UTF-16BE'
+					: first_five[0] === 0xFF && first_five[1] === 0xFE
+						? 'UTF-16LE'
+						: null; // 'ascii';
+			
+			await handle.close();
+			
+			if(encoding)mime += '; charset=' + encoding;
+			
+			this.status(200);
+			this.headers.set('content-type', mime);
+			
+			this.set('date', exports.date.format(this.req.date));
+			
+			// executable file
+			if(options.execute.includes(ext))return fs.promises.readFile(file).then(body => exports.html(file, body, this, options.global).then(data => {
+				if(!this.body_sent){
+					this.set('content-length', Buffer.byteLength(data));
+					this.set('etag',  exports.etag(data));
+					this.send(data);
+				}
+			})).catch(err => console.error(err) + this.send(util.format(err)));
+			
+			if(this.req.headers.has('if-modified-since') && !exports.date.compare(stats.mtimeMs, this.req.headers.get('if-modified-since')))return this.status(304).end();
+			
+			if(options.lastModified)this.set('last-modified', exports.date.format(stats.mtimeMs));
+			
+			if(options.maxAge)this.set('cache-control', 'max-age=' + options.maxAge);
+			
+			if(options.etag && this.req.headers.has('if-none-match') && this.req.headers.get('if-none-match') == this.headers.get('etag'))return this.status(304).end();
+			
+			if(options.setHeaders)await options.setHeaders(res, file, stats);
+			
+			if(stats.size < (exports.size.mb * 2))fs.promises.readFile(file).then(data => {
+				if(options.etag)this.set('etag',	exports.etag(data));
+				this.set('content-length', Buffer.byteLength(data));
+				this.send(data);
+				
+				callback();
+			}); else this.compress(fs.createReadStream(file)), callback();
+		}catch(err){
+			callback(err);
+		}
+	}
 };
 
 /**
@@ -441,6 +450,8 @@ exports.response = class extends events {
 */
 
 exports.sanitize = string => (string + '').split('').map(char => '&#' + char.charCodeAt() + ';').join('');
+
+exports.headers = require('./headers.js');
 
 exports.date = require('./date.js');
 
@@ -464,7 +475,7 @@ exports.size = {
 	},
 };
 
-exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
+exports.html = (fn, body, res, args = {}, ctx) => new Promise(resolve => {
 	// replace and execute both in the same regex to avoid content being insert and ran
 	
 	body = body.toString();
@@ -496,7 +507,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 			clearTimeout: clearTimeout,
 			clearInterval: clearInterval,
 			process: process,
-			req: req,
+			req: res.req,
 			res: res,
 			server: res.server,
 			nodehttp: exports,
@@ -515,7 +526,7 @@ exports.html = (fn, body, req, res, args = {}, ctx) => new Promise(resolve => {
 				if(path.extname(file) == '.js')text = '<?js\n' + text + '\n?>';
 				
 				// pass global
-				return exports.html(file, text, req, res, {}, context).then(data => context.echo(data));
+				return exports.html(file, text, res, {}, context).then(data => context.echo(data));
 			},
 			require(file){
 				return require(context.file(file))
@@ -600,7 +611,7 @@ class router extends events {
 				console.error(err);
 				this.route(req, res, routes.slice(end + 1), err);
 			}
-		}else res.error(404);
+		}else if(!res.body_sent && !res.head_sent)res.error(404);
 	}
 	/**
 	* An internal redirect
@@ -756,7 +767,7 @@ exports.static = (root, options = {}) => {
 				
 				res.set('content-type', 'text/html').status(code);
 
-				exports.html(file, options.error && await fs_promises_exists(options.error) ? await fs.promises.readFile(options.error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>', req, res, {
+				exports.html(file, options.error && await fs_promises_exists(options.error) ? await fs.promises.readFile(options.error) : '<!doctype html><html><head><meta charset="utf8"><title><?=error?></title></head><body><center><h1><?=error?></h1></center><hr><center>nodehttp</center></body></html>', res, {
 					title: title,
 					message: message,
 					error: title + ' ' + message,
@@ -780,56 +791,11 @@ exports.static = (root, options = {}) => {
 			file = resolved;
 		}
 		
-		if(options.listing.includes(relative) && (await fs.promises.stat(file)).isDirectory())return fs.promises.readFile(path.join(__dirname, 'listing.php')).then(body => exports.html(file, body, req, res, { static_root: root })).then(data => res.send(data));
+		if(options.listing.includes(relative) && (await fs.promises.stat(file)).isDirectory())return fs.promises.readFile(path.join(__dirname, 'listing.php')).then(body => exports.html(file, body, res, { static_root: root })).then(data => res.send(data));
 		
 		// no index and no file
 		if(!(await fs_promises_exists(file)) || (await fs.promises.stat(file)).isDirectory() || path.basename(file).startsWith('.') && options.dotfiles == 'ignore')return error(404);
 		
-		var ext = (path.extname(file) + ''),
-			mime = options.execute.includes(ext) ? 'text/html' : exports.http.mimes[ext.substr(1)] || 'application/octet-stream',
-			stats = await fs.promises.stat(file),
-			handle = await fs.promises.open(file, 'r'),
-			first_five = await fs_promises_read(handle.fd, Buffer.alloc(5, [0, 0, 0, 0, 0]), 0, 5, 0),
-			encoding = first_five[0] === 0xEF && first_five[1] === 0xBB && first_five[2] === 0xBF
-			? 'UTF-8'
-			: first_five[0] === 0xFE && first_five[1] === 0xFF
-				? 'UTF-16BE'
-				: first_five[0] === 0xFF && first_five[1] === 0xFE
-					? 'UTF-16LE'
-					: null; // 'ascii';
-		
-		await handle.close();
-		
-		if(encoding)mime += '; charset=' + encoding;
-		
-		res.status(200);
-		res.headers.set('content-type', mime);
-		
-		res.set('date', exports.date.format(res.req.date));
-		
-		// executable file
-		if(options.execute.includes(ext))return fs.promises.readFile(file).then(body => exports.html(file, body, req, res, options.global).then(data => {
-			if(!res.body_sent){
-				res.set('content-length', Buffer.byteLength(data));
-				res.set('etag',  exports.etag(data));
-				res.send(data);
-			}
-		})).catch(err => console.error(err) + res.send(util.format(err)));
-		
-		if(req.headers.has('if-modified-since') && !exports.date.compare(stats.mtimeMs, req.headers.get('if-modified-since')))return res.status(304).end();
-		
-		if(options.lastModified)res.set('last-modified', exports.date.format(stats.mtimeMs));
-		
-		if(options.maxAge)res.set('cache-control', 'max-age=' + options.maxAge);
-		
-		if(options.etag && req.headers.has('if-none-match') && req.headers.get('if-none-match') == res.headers.get('etag'))return res.status(304).end();
-		
-		if(options.setHeaders)await options.setHeaders(res, file, stats);
-		
-		if(stats.size < (exports.size.mb * 2))fs.promises.readFile(file).then(data => {
-			if(options.etag)res.set('etag',	exports.etag(data));
-			res.set('content-length', Buffer.byteLength(data));
-			res.send(data);
-		}); else res.compress(fs.createReadStream(file));
+		return res.sendFile(file, options);
 	};
 };
