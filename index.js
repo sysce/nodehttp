@@ -676,9 +676,11 @@ class server extends router {
 			},
 			port: 8080,
 			address: '127.0.0.1',
-			type: config.ssl ? 'https' : 'http',
 			log_ready: false,
 		}, config);
+		
+		this.config.ssl = typeof this.config.ssl == 'object' && this.config.ssl != null ? this.config.ssl : {};
+		this.config.type = this.config.ssl ? 'https' : 'http';
 		
 		if(this.config.static)throw new TypeError('`static` has been changed. Check documentation or try: server.use(nodehttp.static(' + JSON.stringify(this.config.static) + '))');
 		
