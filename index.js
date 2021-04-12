@@ -428,7 +428,7 @@ exports.response = class extends events {
 			
 			if(options.etag && this.req.headers.has('if-none-match') && this.req.headers.get('if-none-match') == this.headers.get('etag'))return this.status(304).end();
 			
-			if(options.setHeaders)await options.setHeaders(res, file, stats);
+			if(options.setHeaders)await options.setHeaders(this, file, stats);
 			
 			if(stats.size < (exports.size.mb * 2))fs.promises.readFile(file).then(data => {
 				if(options.etag)this.set('etag',	exports.etag(data));
