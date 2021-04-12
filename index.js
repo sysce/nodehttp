@@ -679,7 +679,7 @@ class server extends router {
 			log_ready: false,
 		}, config);
 		
-		this.config.ssl = typeof this.config.ssl == 'object' && this.config.ssl != null ? this.config.ssl : {};
+		this.config.ssl = typeof this.config.ssl == 'object' && this.config.ssl != null ? this.config.ssl : null;
 		this.config.type = this.config.ssl ? 'https' : 'http';
 		
 		if(this.config.static)throw new TypeError('`static` has been changed. Check documentation or try: server.use(nodehttp.static(' + JSON.stringify(this.config.static) + '))');
