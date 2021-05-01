@@ -5,7 +5,7 @@
 | --- | --- |
 | <a href="https://www.npmjs.com/package/sys-nodehttp">![Download](https://img.shields.io/npm/dw/sys-nodehttp?style=for-the-badge)</a> | [API](./api.md) |
 
-# ⚠ THIS PAGE IS UNDER MAINTENANCE, SOME DETAILS MAY BE INACCURATE ⚠
+# ⚠ THIS PAGE IS UNDER MAINTENANCE, SOME DETAILS MAY BE INCOMPLETE/INACCURATE ⚠
 
 ### Installation:
 
