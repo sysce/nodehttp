@@ -66,12 +66,3 @@ exports.compare = (date1, date2) => {
 	
 	return date1.getTime() > date2.getTime();
 };
-
-exports.time = {
-	second: 1000,
-	minute: 1000 * 60,
-	hour: 1000 * 60 * 60,
-	day: 1000 * 60 * 60 * 24,
-	month: 1000 * 60 * 60 * 25 * 30,
-	year: 1000 * 60 * 60 * 24 * 365,
-};
