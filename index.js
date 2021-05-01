@@ -326,13 +326,13 @@ class NativeResponseInterface extends Response {
 	}
 	write(data){
 		if(this.body_sent)throw new Error('Response ended');
-		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
+		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.wrapped_headers());
 		
 		this.socket.write(data);
 	}
 	end(data){
 		if(this.body_sent)throw new Error('Response ended');
-		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
+		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.wrapped_headers());
 		this.body_sent = true;
 		
 		this.socket.end(data);
@@ -408,7 +408,7 @@ class Server extends Router {
 			},
 			// determines if native modules such as http and https should be used
 			// otherwise custom error tolerant implementation will be used
-			native: true,
+			native: false,
 		}, config);
 		
 		if(this.config.log)this.once('bound', url => console.log(`Listening on ${url}`));

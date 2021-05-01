@@ -113,7 +113,7 @@ class HTTPNodehttpResponse extends events {
 		if(
 			this.request.headers.has('if-modified-since') && !date.compare(modified, this.request.headers.get('if-modified-since')) ||
 			do_etag && this.request.headers.has('if-none-match') && this.request.headers.get('if-none-match') == this.headers.get('etag')
-		)return this.status(304).end(), true;
+		)return this.status(304), this.end(), true;
 	}
 	send_file(file, options = {}){
 		return new Promise(async (resolve, reject) => {
