@@ -477,5 +477,6 @@ exports.wrap = {
 	express: { request: HTTPExpressRequest, response: HTTPExpressResponse },
 	// native: { request: HTTPNativeRequest, response: HTTPNativeResponse },
 };
+exports.fetch = require('./nhwrap/fetch');
 exports.listing = exports.wrap.nodehttp.listing;
 exports.static = exports.wrap.nodehttp.static;

@@ -121,7 +121,7 @@ class HTTPNodehttpResponse extends events {
 	send_file(file, options = {}){
 		return new Promise(async (resolve, reject) => {
 			var ext = path.extname(file) || '',
-				mime = options.execute.includes(ext) ? 'text/html' : HTTPNodehttpResponse.mimes[ext.substr(1)] || 'application/octet-stream',
+				mime = Array.isArray(options.execute) && options.execute.includes(ext) ? 'text/html' : HTTPNodehttpResponse.mimes[ext.substr(1)] || 'application/octet-stream',
 				stats = await fs.promises.stat(file),
 				fserr = err => {
 					if(err.code == 'EISDIR')reject(404);
@@ -133,13 +133,13 @@ class HTTPNodehttpResponse extends events {
 			this.headers.set('date', date.format(this.request.time));
 			
 			// executable file
-			if(options.execute.includes(ext))return this.execute(file, await fs.promises.readFile(file).catch(reject), true, options.global);
+			if(Array.isArray(options.execute) && options.execute.includes(ext))return this.execute(file, await fs.promises.readFile(file).catch(reject), true, options.global);
 			
 			if(options.last_modified)this.headers.set('last-modified', date.format(stats.mtimeMs));
 			
 			if(!isNaN(options.max_age))this.headers.set('cache-control', 'max-age=' + options.max_age);
 			
-			if(options.set_headers)await options.set_headers(this, file, stats);
+			if(typeof options.set_headers == 'function')await options.set_headers(this, file, stats);
 			
 			if(this.do_cache(false, stats.mtimeMs))return;
 			
