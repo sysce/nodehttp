@@ -135,7 +135,7 @@ class HTTPNodehttpResponse extends events {
 			// executable file
 			if(Array.isArray(options.execute) && options.execute.includes(ext))return this.execute(file, await fs.promises.readFile(file).catch(reject), true, options.global);
 			
-			if(options.last_modified)this.headers.set('last-modified', date.format(stats.mtimeMs));
+			if(options.last_modified != false)this.headers.set('last-modified', date.format(stats.mtimeMs));
 			
 			if(!isNaN(options.max_age))this.headers.set('cache-control', 'max-age=' + options.max_age);
 			
@@ -144,7 +144,7 @@ class HTTPNodehttpResponse extends events {
 			if(this.do_cache(false, stats.mtimeMs))return;
 			
 			if(stats.size < 2e6)fs.promises.readFile(file).then(data => {
-				if(options.etag)this.headers.set('etag', this.etag(data));
+				if(options.etag != false)this.headers.set('etag', this.etag(data));
 				if(this.do_cache(options.etag, stats.mtimeMs))return;
 				this.end(data);
 				resolve();
