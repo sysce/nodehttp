@@ -9,6 +9,7 @@ var fs = require('fs'),
 	https = require('https'),
 	events = require('events'),
 	reader = require('./reader'),
+	W3CWebSocket = require('./lib/W3CWebSocket'),
 	WebSocketRequest = require('./lib/WebSocketRequest');
 
 class Request extends events {
@@ -44,6 +45,7 @@ class Request extends events {
 			if(this.headers['x-forwarded-host'])this.forwarded.host = this.headers['x-forwarded-host'];
 		}
 		
+		this.raw_url = data.url;
 		this.url = new URL(data.url.replace(/[\/\\]+/g, '/'), 'http' + (this.secure ? 's' : '') + '://' + this.forwarded.host);
 		
 		if(this.headers['content-type'])switch(this.headers['content-type'].split(';')[0]){
@@ -241,7 +243,7 @@ class Router extends events {
 			end = this.routes.slice(index).findIndex(route => {
 				if(is_ws && route.method != 'WS')return;
 				else if(route.method != '*' && route.method != req_method && (req_method != 'HEAD' || route.method != 'GET'))return;
-				else return test_strex(request.url, route.path, route.type);
+				else return reader.test_strex(reader.pathname(request.url), route.path, route.type);
 			}),
 			next = err => {
 				if(this.body_sent)return;
@@ -258,19 +260,24 @@ class Router extends events {
 			try{
 				if(is_ws){
 					var ws_req = new WebSocketRequest(response.socket, {
-						headers: Object.fromEntries([...request.headers.entriesAll()]),
-						url: request.url,
-					}, { assembleFragments: true });
+							headers: request.headers,
+							url: request.url + '',
+						}, { assembleFragments: true }),
+						req_wrap = new exports.wrap.nodehttp.request(request);
 					
 					ws_req.readHandshake();
 					
 					var connection = ws_req.accept();
 					
-					connection.on('message', data => request.emit('message', data.type == 'utf8' ? Buffer.from(data.utf8Data) : data.binaryData));
-					connection.on('close', request.emit.bind(request, 'close'));
-					connection.on('drain', request.emit.bind(request, 'drain'));
-					connection.on('pause', request.emit.bind(request, 'pause'));
-					connection.on('resume', request.emit.bind(request, 'resume'));
+					req_wrap.send = connection.send.bind(connection);
+					req_wrap.close = connection.close.bind(connection);
+					connection.on('message', data => req_wrap.emit('message', data.type == 'utf8' ? Buffer.from(data.utf8Data) : data.binaryData));
+					connection.on('close', req_wrap.emit.bind(req_wrap, 'close'));
+					connection.on('drain', req_wrap.emit.bind(req_wrap, 'drain'));
+					connection.on('pause', req_wrap.emit.bind(req_wrap, 'pause'));
+					connection.on('resume', req_wrap.emit.bind(req_wrap, 'resume'));
+					
+					return await this.routes[end].callback(req_wrap);
 				}
 				
 				var wrap_req = new this.routes[end].wrap.request(request),
@@ -306,7 +313,7 @@ class Router extends events {
 	host(host, callback){
 		var route = new router();
 		
-		this.hosts.set(string_or_regex(host), route);
+		this.hosts.set(reader.string_or_regex(host), route);
 		
 		if(typeof callback == 'function')callback(route);
 		
@@ -339,19 +346,6 @@ class NativeResponseInterface extends Response {
 	}
 };
 
-var make_regex = (path, flags) => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'), flags),
-	string_or_regex = (input, meta) => input != '*' ? meta == 'USE' ? (input instanceof RegExp ? new RegExp(input.source + '*', input.flags) : make_regex(input + '*')) : input.includes('*') ? make_regex(input) : input : input,
-	test_strex = (input, match, meta) => {
-		if(!match || match == '*')return true;
-		
-		if(meta == 'USE')match = match instanceof RegExp ? new RegExp(match.source + '*', match.flags) : make_regex(match + '*');
-		
-		if(match instanceof RegExp)return match.test(input);
-		if(match.includes('*'))return make_regex(match).test(input);
-		
-		return match == input;
-	};
-
 // add routes
 [ 'WS', [ 'USE', '*' ], [ 'ALL', '*' ] ].concat(reader.methods).forEach(data => {
 	var name, method;
@@ -369,7 +363,7 @@ var make_regex = (path, flags) => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, ch
 			type: name, // real type eg use
 			path: args.find(val => typeof val == 'string' || val instanceof RegExp),
 			callback: callback,
-			wrap: args.find(val => typeof val == 'object') || exports.wrap.nodehttp,
+			wrap: args.find(val => !(val instanceof RegExp) && typeof val == 'object') || exports.wrap.nodehttp,
 		});
 		
 		return callback;
@@ -471,7 +465,7 @@ class Server extends Router {
 		this.debug_trace.push(data);
 		if(this.config.debug)console.log('[' + id + ']', data.join(', '));
 	}
-}
+};
 
 exports.Request = Request;
 exports.Response = Response;

@@ -39,8 +39,10 @@ var fs = require('fs'),
 	cookies = require('./cookies'),
 	Headers = require('./headers');
 
-class HTTPNodehttpRequest {
+class HTTPNodehttpRequest extends events {
 	constructor(impl){
+		super();
+		
 		this[reader.http_impl] = impl;
 		this.headers = new Headers(impl.headers);
 		this.time = new Date();
@@ -68,7 +70,8 @@ class HTTPNodehttpResponse extends events {
 		this.end(data);
 	}
 	json(data){
-		return this.headers.set('content-type', 'application/json'), this.end(JSON.stringify(data));
+		this.headers.set('content-type', 'application/json');
+		this.send(JSON.stringify(data));
 	}
 	redirect(...args){
 		var url = args.find(arg => typeof arg == 'string');
@@ -240,7 +243,7 @@ var proxy_impl = (target, ...props) => props.forEach(prop => Object.defineProper
 	set(value){ return this[reader.http_impl][prop] = value },
 }));
 
-proxy_impl(HTTPNodehttpRequest, 'method', 'route', 'server', 'url', 'body');
+proxy_impl(HTTPNodehttpRequest, 'method', 'route', 'server', 'raw_url', 'url', 'body');
 proxy_impl(HTTPNodehttpResponse, 'head_sent', 'body_sent', 'end', 'write', 'status');
 
 exports.request = HTTPNodehttpRequest;

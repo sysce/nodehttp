@@ -99,8 +99,6 @@ class Headers extends Map {
 	normal_value(value){
 		if(Array.isArray(value))return value.map(this.normal_value);
 		
-		if(typeof value == 'undefined' || value == null)throw new TypeError('`value` must be defined');
-		
 		return value; // [...value.toString().trim()].filter(x => x.charCodeAt()).join('');
 	}
 };

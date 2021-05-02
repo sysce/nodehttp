@@ -4,6 +4,29 @@ exports.methods = ['ACL','BIND','CHECKOUT','CONNECT','COPY','DELETE','GET','HEAD
 
 exports.http_impl = Symbol();
 
+exports.pathname = url => {
+	try{
+		return new URL(url, 'http:0').pathname;
+	}catch(err){
+		return url;
+	}
+};
+
+exports.make_regex = (path, flags) => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'), flags);
+
+exports.string_or_regex = (input, meta) => input != '*' ? meta == 'USE' ? (input instanceof RegExp ? new RegExp(input.source + '*', input.flags) : exports.make_regex(input + '*')) : input.includes('*') ? exports.make_regex(input) : input : input;
+
+exports.test_strex = (input, match, meta) => {
+	if(!match || match == '*')return true;
+	
+	if(meta == 'USE')match = match instanceof RegExp ? new RegExp(match.source + '*', match.flags) : exports.make_regex(match + '*');
+	
+	if(match instanceof RegExp)return match.test(input);
+	if(match.includes('*'))return exports.make_regex(match).test(input);
+	
+	return match == input;
+};
+
 exports.max_body = 1e7;
 
 exports.read_response = data => {
