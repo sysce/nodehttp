@@ -160,14 +160,14 @@ class Response extends events {
 			else if(this[reader.http_impl].content_length == null)throw new Error('No content-length specified');
 			
 			this.body_sent = true;
-		}else if(this.version = 1){
-			this.write(data);
+		}else if(this.version == 1){
+			// this.write(data);
 			
 			var write = Buffer.concat(this.write_buffers.map(data => Buffer.from(data)));
 			
 			delete this.write_buffers;
 			
-			this.headers.set('content-length', write.byteLength);
+			this.headers['content-length'] = write.byteLength;
 			
 			if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
 			
@@ -197,6 +197,7 @@ HTTPNativeRequest.read_data = request => {
 			url: request.url,
 			method: request.method,
 			errors: [],
+			http: 1.1,
 		};
 	
 	return new Promise(resolve => {

@@ -12,17 +12,17 @@ exports.pathname = url => {
 	}
 };
 
-exports.make_regex = (path, flags) => new RegExp(path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'), flags);
+exports.make_regex = (path, flags) => new RegExp('^' + path.replace(/[[\]\/()$^+|.?]/g, char => '\\' + char).replace(/\*/g, '.*?'), flags);
 
 exports.string_or_regex = (input, meta) => input != '*' ? meta == 'USE' ? (input instanceof RegExp ? new RegExp(input.source + '*', input.flags) : exports.make_regex(input + '*')) : input.includes('*') ? exports.make_regex(input) : input : input;
 
 exports.test_strex = (input, match, meta) => {
 	if(!match || match == '*')return true;
 	
-	if(meta == 'USE')match = match instanceof RegExp ? new RegExp(match.source + '*', match.flags) : exports.make_regex(match + '*');
+	if(meta == 'USE' && !(match instanceof RegExp))match = exports.make_regex(match);
+	else if(match.includes('*'))match = exports.make_regex(match).test(input);
 	
 	if(match instanceof RegExp)return match.test(input);
-	if(match.includes('*'))return exports.make_regex(match).test(input);
 	
 	return match == input;
 };
@@ -98,8 +98,14 @@ exports.read_request = (data, socket) => {
 	if(url)result.url = url;
 	else result.errors.push('No URL specified');
 	
-	if(http)result.http = +(http || '').split('/')[1] || (result.errors.push('Invalid HTTP version'), 1.1);
-	else result.errors.push('No HTTP version specified');
+	if(http){
+		result.http = +(http || '').split('/')[1];
+
+		if(!result.http || !([ 1, 1.1 ].includes(result.http))){
+			result.errors.push('Invalid HTTP version');
+			result.http = 1.1;
+		}
+	}else result.errors.push('No HTTP version specified');
 	
 	split.forEach(data => {
 		var split = data.split(':'),
@@ -114,6 +120,8 @@ exports.read_request = (data, socket) => {
 	});
 	
 	result.body = data.slice(0, headers_end);
+	
+	if(result.errors.length)console.error(result.errors.join('\n\n'));
 	
 	return result;
 };
