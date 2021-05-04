@@ -1,6 +1,5 @@
 // basic wrapper
 'use strict';
-
 var fs = require('fs'),
 	mod = require('module'),
 	path = require('path'),
@@ -33,7 +32,7 @@ var fs = require('fs'),
 		return mod.exports;
 	},
 	date = require('./date'),
-	fetch = require('./fetch'),
+	fetch = require('node-fetch'),
 	syntax = require('./syntax'),
 	reader = require('../reader'),
 	cookies = require('./cookies'),
@@ -181,7 +180,6 @@ class HTTPNodehttpResponse extends events {
 			res: this,
 			server: this.request.server,
 			nodehttp: exports,
-			fetch: fetch,
 			fs: fs,
 			path: path,
 			btoa: str => Buffer.from(str || '', 'utf8').toString('base64'),

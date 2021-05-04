@@ -19,5 +19,8 @@
 		"nodehttp"
 	],
 	"author": "systemya",
-	"license": "GPL-3.0"
+	"license": "GPL-3.0",
+	"dependencies": {
+		"node-fetch": "^2.6.1"
+	}
 }

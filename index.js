@@ -106,7 +106,7 @@ class Response extends events {
 		this.socket.write(`HTTP/${this.version == 1 ? '1.0' : '1.1'} ${status} ${this[reader.http_impl].message}\r\n${Object.entries(headers).map(([ header, value ]) => [].concat(value).map(value => header + ': ' + value + '\r\n').join('')).join('')}\r\n`);
 	}
 	status(code, message){
-		this[reader.http_impl].status = parseInt(code);
+		this[reader.http_impl].status = code;
 		this[reader.http_impl].message = message || (reader.status_codes[code] ? reader.status_codes[this[reader.http_impl].status] : 'OK');
 	}
 	error(code, message, title = code){
@@ -256,9 +256,9 @@ class Router extends events {
 			
 			try{
 				if(is_ws){
-					var ws_req = new WebSocketRequest(response.socket, {
+					var ws_req = new WebSocketRequest(response instanceof NativeResponseInterface ? response.socket.socket : response.socket, {
 							headers: request.headers,
-							url: request.url + '',
+							url: request.url,
 						}, { assembleFragments: true }),
 						req_wrap = new exports.wrap.nodehttp.request(request);
 					
@@ -453,6 +453,6 @@ exports.wrap = {
 	// native: { request: HTTPNativeRequest, response: HTTPNativeResponse },
 };
 exports.date = require('./nhwrap/date');
-exports.fetch = require('./nhwrap/fetch');
+exports.fetch = require('node-fetch');
 exports.listing = exports.wrap.nodehttp.listing;
 exports.static = exports.wrap.nodehttp.static;
