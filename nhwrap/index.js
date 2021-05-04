@@ -39,6 +39,12 @@ var fs = require('fs'),
 	cookies = require('./cookies'),
 	Headers = require('./headers');
 
+class ReqURL extends URL {
+	get path(){
+		return this.href.substr(this.origin.length);
+	}
+}
+
 class HTTPNodehttpRequest extends events {
 	constructor(impl){
 		super();
@@ -47,6 +53,7 @@ class HTTPNodehttpRequest extends events {
 		this.headers = new Headers(impl.headers);
 		this.time = new Date();
 		this.cookies = new cookies(this.headers.get('cookie'));
+		this.url = new ReqURL(impl.url.replace(/[\/\\]+/g, '/'), 'http' + (this.secure ? 's' : '') + '://' + this.forwarded.host);
 	}
 	// relative from route
 	get relative(){
@@ -58,15 +65,14 @@ class HTTPNodehttpResponse extends events {
 	constructor(impl){
 		super();
 		
-		this.headers = new Headers(impl.headers);
 		this[reader.http_impl] = impl;
-		impl.wrapped_headers = () => Object.fromEntries([...this.headers.entries()]);
+		this.headers = new Headers(this[reader.http_impl].headers);
 	}
 	etag(data){
 		return '"' + Buffer.byteLength(data || '').toString(16) + '-' + crypto.createHash('sha1').update(data || '', 'utf8').digest('base64').substring(0, 27) + '"';
 	}
 	send(data){
-		if(typeof data != 'undefined')this.headers.set('etag', this.etag(data));
+		if(typeof data != 'undefined' && !this.headers.has('etag'))this.headers.set('etag', this.etag(data));
 		this.end(data);
 	}
 	json(data){
@@ -143,7 +149,7 @@ class HTTPNodehttpResponse extends events {
 			
 			if(this.do_cache(false, stats.mtimeMs))return;
 			
-			if(stats.size < 2e6)fs.promises.readFile(file).then(data => {
+			if(stats.size < 6e6)fs.promises.readFile(file).then(data => {
 				if(options.etag != false)this.headers.set('etag', this.etag(data));
 				if(this.do_cache(options.etag, stats.mtimeMs))return;
 				this.end(data);
@@ -243,7 +249,7 @@ var proxy_impl = (target, ...props) => props.forEach(prop => Object.defineProper
 	set(value){ return this[reader.http_impl][prop] = value },
 }));
 
-proxy_impl(HTTPNodehttpRequest, 'method', 'route', 'server', 'raw_url', 'url', 'body');
+proxy_impl(HTTPNodehttpRequest, 'method', 'route', 'server', 'body', 'forwarded', 'secure');
 proxy_impl(HTTPNodehttpResponse, 'head_sent', 'body_sent', 'end', 'write', 'status');
 
 exports.request = HTTPNodehttpRequest;
@@ -319,3 +325,5 @@ exports.listing = folder => async (req, res, next) => {
 	res.headers.set('content-type', 'text/html');
 	res.execute(folder, await fs.promises.readFile(path.join(__dirname, 'listing.php')), true, { folder: current });
 };
+
+exports.ReqURL = ReqURL;

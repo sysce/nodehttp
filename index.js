@@ -45,8 +45,7 @@ class Request extends events {
 			if(this.headers['x-forwarded-host'])this.forwarded.host = this.headers['x-forwarded-host'];
 		}
 		
-		this.raw_url = data.url;
-		this.url = new URL(data.url.replace(/[\/\\]+/g, '/'), 'http' + (this.secure ? 's' : '') + '://' + this.forwarded.host);
+		this.url = data.url;
 		
 		if(this.headers['content-type'])switch(this.headers['content-type'].split(';')[0]){
 			case'text/plain':
@@ -96,7 +95,7 @@ class Response extends events {
 			this.headers['keep-alive'] = 'timeout=' + (this.request.server.config.keep_alive.timeout / 1000);
 		}else if(this.version == 1)this.write_buffers = [];
 	}
-	write_head(status, headers){
+	write_head(status, headers = this.headers){
 		if(this.head_sent)throw new Error('Response headers already sent');
 		this.head_sent = true;
 		
@@ -107,10 +106,8 @@ class Response extends events {
 		this.socket.write(`HTTP/${this.version == 1 ? '1.0' : '1.1'} ${status} ${this[reader.http_impl].message}\r\n${Object.entries(headers).map(([ header, value ]) => [].concat(value).map(value => header + ': ' + value + '\r\n').join('')).join('')}\r\n`);
 	}
 	status(code, message){
-		if(reader.status_codes[code]){
-			this[reader.http_impl].status = parseInt(code);
-			this[reader.http_impl].message = message || reader.status_codes[this[reader.http_impl].status];
-		}else throw new Error('Invalid status');
+		this[reader.http_impl].status = parseInt(code);
+		this[reader.http_impl].message = message || (reader.status_codes[code] ? reader.status_codes[this[reader.http_impl].status] : 'OK');
 	}
 	error(code, message, title = code){
 		if(!message)title = code + ' ' + reader.status_codes[code];
@@ -126,13 +123,9 @@ class Response extends events {
 			this.end(`<!doctype html><html><head><title>${code} ${message=reader.status_codes[code]}</title></head><body><h1>${code} ${message}</h1><hr><p>${formatted}</p></body></html>`);
 		}else this.end(`<!doctype html><html><head><title>${code} ${message=reader.status_codes[code]}</title></head><body><center><h1>${code} ${message}</h1><hr>nodehttp</center></body></html>`);
 	}
-	// intended to be overwritten by wrapper, return an object
-	wrapped_headers(){
-		return this.headers;
-	}
 	write(data){
 		if(this.body_sent)throw new Error('Response ended');
-		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.wrapped_headers());
+		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
 		
 		if(typeof data != 'string' && !Buffer.isBuffer(data))throw new TypeError('Data must be a string or buffer');
 		else if(!Buffer.byteLength(data))return this;
@@ -147,7 +140,7 @@ class Response extends events {
 		}else if(this.version == 1)this.write_buffers.push(data);
 	}
 	end(data){
-		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.wrapped_headers());
+		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
 		if(typeof data != 'undefined')this.write(data);
 		
 		if(this.version == 1.1){
@@ -229,7 +222,6 @@ class Router extends events {
 		super();
 		
 		this.routes = [];
-		this.hosts = new Map();
 		this.aliases = new Map();
 	}
 	/**
@@ -237,26 +229,30 @@ class Router extends events {
 	* @param {Object} res - Server response
 	*/
 	async route(request, response, index = 0, err){
-		for(var [ host, router ] of this.hosts.entries())if(host == '*' || host instanceof RegExp && host.test(req.url.hostname) || host == request.url.hostname)return router.route(response);
-		
 		var is_ws = request.method == 'GET' && request.headers['connection'] == 'Upgrade',
 			req_method = is_ws ? 'WS' : request.method,
 			end = this.routes.slice(index).findIndex(route => {
 				if(is_ws && route.method != 'WS')return;
 				else if(route.method != '*' && route.method != req_method && (req_method != 'HEAD' || route.method != 'GET'))return;
 				else return reader.test_strex(reader.pathname(request.url), route.path, route.type);
-			}),
-			next = err => {
-				if(this.body_sent)return;
-				// if(err instanceof Error)console.error(err);
-				// console.log(end, this.routes.slice(end + 1).length == this.routes.slice(ind).length);
-				return this.route(request, response, index + 1, err);
-			};
+			});
 		
 		if(end != -1)end += index;
 		
 		if(this.routes[end]){
 			request.route = this.routes[end];
+			
+			var next = err => {
+					if(this.body_sent)return;
+					// if(err instanceof Error)console.error(err);
+					// console.log(end, this.routes.slice(end + 1).length == this.routes.slice(ind).length);
+					return this.route(request, response, index + 1, err);
+				},
+				wrap_req = new this.routes[end].wrap.request(request),
+				wrap_res = new this.routes[end].wrap.response(response);
+			
+			wrap_res.request = wrap_req;
+			wrap_req.response = wrap_res;
 			
 			try{
 				if(is_ws){
@@ -281,12 +277,6 @@ class Router extends events {
 					return await this.routes[end].callback(req_wrap);
 				}
 				
-				var wrap_req = new this.routes[end].wrap.request(request),
-					wrap_res = new this.routes[end].wrap.response(response);
-				
-				wrap_res.request = wrap_req;
-				wrap_req.response = wrap_res;
-				
 				await this.routes[end].callback(wrap_req, wrap_res, next);
 			}catch(err){
 				console.error('nodehttp caught:');
@@ -305,21 +295,6 @@ class Router extends events {
 		
 		return this;
 	}
-	/**
-	* Create routes to a host
-	* @param {String} Host
-	* @param {Function} [callback]
-	* @returns {Router} Router
-	*/
-	host(host, callback){
-		var route = new router();
-		
-		this.hosts.set(reader.string_or_regex(host), route);
-		
-		if(typeof callback == 'function')callback(route);
-		
-		return route;
-	}
 }
 
 class NativeResponseInterface extends Response {
@@ -334,13 +309,13 @@ class NativeResponseInterface extends Response {
 	}
 	write(data){
 		if(this.body_sent)throw new Error('Response ended');
-		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.wrapped_headers());
+		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
 		
 		this.socket.write(data);
 	}
 	end(data){
 		if(this.body_sent)throw new Error('Response ended');
-		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.wrapped_headers());
+		if(!this.head_sent)this.write_head(this[reader.http_impl].status, this.headers);
 		this.body_sent = true;
 		
 		this.socket.end(data);
@@ -477,6 +452,7 @@ exports.wrap = {
 	express: { request: HTTPExpressRequest, response: HTTPExpressResponse },
 	// native: { request: HTTPNativeRequest, response: HTTPNativeResponse },
 };
+exports.date = require('./nhwrap/date');
 exports.fetch = require('./nhwrap/fetch');
 exports.listing = exports.wrap.nodehttp.listing;
 exports.static = exports.wrap.nodehttp.static;

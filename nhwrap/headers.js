@@ -3,15 +3,13 @@
 /**
 * Headers implementation
 */
-class Headers extends Map {
+class Headers {
 	/**
 	* Creates headers
 	* @param {Object|Headers} [headers] - Pre-existing headers that will be parsed
 	*/
-	constructor(headers){
-		super();
-		
-		if(typeof headers == 'object')for(var header in headers)this.set(header, headers[header]);
+	constructor(data = {}){
+		this.data = data;
 	}
 	/**
 	* Retrieves a header
@@ -19,9 +17,9 @@ class Headers extends Map {
 	* @returns {String}
 	*/
 	get(header){
-		if(!super.has(header = this.normal_header(header)))return null;
+		if(!this.has(header))return null;
 		
-		return [].concat(super.get(header)).join(', ');
+		return [].concat(this.data[this.normal_header(header)]).join(', ');
 	}
 	/**
 	* Retrieves header values (by set or append)
@@ -30,9 +28,9 @@ class Headers extends Map {
 	* @returns {Array}
 	*/
 	getAll(header){
-		if(!super.has(header = this.normal_header(header)))return null;
+		if(!this.has(header))return null;
 		
-		return [].concat(super.get(header));
+		return [].concat(this.data[this.normal_header(header)]);
 	}
 	/**
 	* Determines if specified key exists or not
@@ -40,7 +38,7 @@ class Headers extends Map {
 	* @returns {Boolean}
 	*/
 	has(header){
-		return super.has(this.normal_header(header));
+		return this.data.hasOwnProperty(this.normal_header(header));
 	}
 	/**
 	* Removes specified header
@@ -48,7 +46,7 @@ class Headers extends Map {
 	* @returns {Boolean} - If deleting was successful
 	*/
 	delete(header){
-		return super.delete(this.normal_header(header));
+		return delete this.data[this.normal_header(header)];
 	}
 	/**
 	* Sets or updates a header
@@ -57,7 +55,7 @@ class Headers extends Map {
 	*/
 	set(header, value){
 		if(Array.isArray(value))value.forEach(data => this.append(header, data));
-		else super.set(this.normal_header(header), this.normal_value(value));
+		else this.data[this.normal_header(header)] = this.normal_value(value);
 	}
 	/**
 	* Sets or appends to a header
@@ -65,14 +63,11 @@ class Headers extends Map {
 	* @param {String} value
 	*/
 	append(header, value){
-		header = this.normal_header(header);
 		value = this.normal_value(value);
 		
-		if(this.has(header)){
-			var old_value = super.get(header);
-			
-			super.set(header, (Array.isArray(old_value) ? old_value : [ old_value ]).concat(value));
-		}else super.set(header, value);
+		if(!this.has(header))return this.set(header, value);
+		
+		this.data[header = this.normal_header(header)] = [].concat(this.data[header], this.normal_value(value));
 	}
 	/**
 	* Executes a function provided once per pair
@@ -80,16 +75,22 @@ class Headers extends Map {
 	* @param {Object} thisArg
 	*/
 	forEach(callback, thisArg){
-		for(var [ header, value ] of super.keys())callback.call(thisArg || this, this.get(header), header, this);
+		for(var [ header, value ] of this.keys())callback.call(thisArg || this, this.get(header), header, this);
+	}
+	* keys(){
+		for(var prop in this.data)yield prop;
 	}
 	* entries(){
-		for(var header of super.keys())yield [ header, this.get(header) ];
+		for(var header of this.keys())yield [ header, this.get(header) ];
 	}
 	* entriesAll(){
-		for(var header of super.keys())yield [ header, this.getAll(header) ];
+		for(var header of this.keys())yield [ header, this.getAll(header) ];
 	}
 	* values(){
-		for(var header of super.keys())yield this.get(header);
+		for(var header of this.keys())yield this.get(header);
+	}
+	[Symbol.iterator](){
+		return this.entries();
 	}
 	normal_header(header){
 		if(typeof header != 'string')throw new TypeError('`header` must be a string');
