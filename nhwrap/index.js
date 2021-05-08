@@ -71,7 +71,9 @@ class HTTPNodehttpResponse extends events {
 		return '"' + Buffer.byteLength(data || '').toString(16) + '-' + crypto.createHash('sha1').update(data || '', 'utf8').digest('base64').substring(0, 27) + '"';
 	}
 	send(data){
-		if(typeof data != 'undefined' && !this.headers.has('etag'))this.headers.set('etag', this.etag(data));
+		if(typeof data == 'number')return this.status(data), this.end();
+		// else if(typeof data != 'undefined' && !this.headers.has('etag'))this.headers.set('etag', this.etag(data));
+		
 		this.end(data);
 	}
 	json(data){

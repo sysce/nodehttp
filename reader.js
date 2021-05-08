@@ -20,9 +20,9 @@ exports.test_strex = (input, match, meta) => {
 	if(!match || match == '*')return true;
 	
 	if(meta == 'USE' && !(match instanceof RegExp))match = exports.make_regex(match);
-	else if(match.includes('*'))match = exports.make_regex(match).test(input);
+	else if(match.includes('*'))match = exports.make_regex(match);
 	
-	if(match instanceof RegExp)return match.test(input);
+	if(match instanceof RegExp)return !!match.test(input);
 	
 	return match == input;
 };

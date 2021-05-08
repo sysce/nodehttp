@@ -1,7 +1,7 @@
 {
 	"name": "sys-nodehttp",
 	"description": "Powerful express alternative",
-	"version": "1.8.6",
+	"version": "1.8.8",
 	"main": "index.js",
 	"repository": {
 		"type": "git",
