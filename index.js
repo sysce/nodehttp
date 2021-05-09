@@ -151,8 +151,6 @@ class Response extends events {
 			)this.socket.end();
 			else if(this[reader.http_impl].transfer_encoding == 'chunked')this.socket.write('0\r\n\r\n');
 			else if(this[reader.http_impl].content_length == null)throw new Error('No content-length specified');
-			
-			this.body_sent = true;
 		}else if(this.version == 1){
 			// this.write(data);
 			
@@ -166,6 +164,8 @@ class Response extends events {
 			
 			this.socket.end(write);
 		}
+		
+		this.body_sent = true;
 		
 		this.emit('end');
 	}
