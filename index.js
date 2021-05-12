@@ -37,13 +37,20 @@ class Request extends events {
 		};
 		
 		// if proxy is trusted, process forwarded headers
-		if(this.forwarded.trust){
-			if(this.headers['x-forwarded-for'])this.forwarded.ips = this.headers['x-forwarded-for'].split(', '), this.forwarded.ip = this.forwarded.ips[0];
+		// if(this.forwarded.trust){
+		// trust can be checked by the client since theres no need to trust when only the forwarded property is changed
+		
+		if(this.headers['x-forwarded-for'])this.forwarded.ips = this.headers['x-forwarded-for'].split(', '), this.forwarded.ip = this.forwarded.ips[0];
 			
-			if(this.headers['x-forwarded-proto'])this.forwarded.protocol = this.headers['x-forwarded-proto'];
+		if(this.headers['x-forwarded-proto'])this.forwarded.protocol = this.headers['x-forwarded-proto'];
 			
-			if(this.headers['x-forwarded-host'])this.forwarded.host = this.headers['x-forwarded-host'];
-		}
+		if(this.headers['x-forwarded-host'])this.forwarded.host = this.headers['x-forwarded-host'];
+		// }
+		
+		if(this.headers['cf-connecting-ip'])this.forwarded.ips.push(this.headers['cf-connecting-ip']);
+		else if(this.headers['x-real-ip'])this.forwarded.ips.push(this.headers['x-real-ip']);
+		
+		this.forwarded.ip = this.forwarded.ips[this.forwarded.ips.length - 1] || this.ip;
 		
 		this.url = data.url;
 		
