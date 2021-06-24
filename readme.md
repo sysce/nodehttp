@@ -1,3 +1,5 @@
+This project has been archived because it is not practical. Consider using alternatives such as [Express](https://www.npmjs.com/package/express) or [Fastify](https://www.npmjs.com/package/fastify).
+
 # NODEHTTP
 ## Lightweight express alternative with similar syntax and usage.
 
@@ -5,7 +7,7 @@
 | --- | --- |
 | <a href="https://www.npmjs.com/package/sys-nodehttp">![Download](https://img.shields.io/npm/dw/sys-nodehttp?style=for-the-badge)</a> | [API](./api.md) |
 
-# ⚠ THIS PAGE IS UNDER MAINTENANCE, SOME DETAILS MAY BE INCOMPLETE/INACCURATE ⚠
+### ⚠ THIS PAGE IS UNDER MAINTENANCE, SOME DETAILS MAY BE INCOMPLETE/INACCURATE ⚠
 
 ### Installation:
 
